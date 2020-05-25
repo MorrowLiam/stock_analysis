@@ -17,6 +17,7 @@ tickers = 'PG,MSFT,F,GE'
 start_date = '2012-01-01'
 end_date = '2017-01-01'
 
+
 #call for stock information.
 stock_df = stock_retrieval(tickers, start_date, end_date)
 stock_df
