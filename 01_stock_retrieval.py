@@ -6,14 +6,12 @@ def stock_retrieval(tickers,start_date,end_date):
     #remove commas
     #should add in a check for unique, remove spaces, and check to see if these are needed
     tickers = tickers.split(',')
-    ticker_list = []
-    ticker_list = tickers
     #create a dictionary to sort the dataframes
     d = {}
     for tickers in tickers:
         d[tickers] = pd.DataFrame()
         d[tickers] = wb.DataReader(tickers, data_source='yahoo', start=(start_date), end=(end_date))
-    return d,ticker_list
+    return d
 
 
 #required input
