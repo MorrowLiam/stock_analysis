@@ -1,37 +1,3 @@
-# Stock Analysis
-
-## Description:
-Stock Analysis to evaluate my personal accounts.
-
-## Index
-1. Fetch Commands
-  - Multiple Stocks from yahoo
-  - *Quandl*
-  - *Etrade*
-  - *excel*
-
-
-2. *Portfolio Optimization - Risk*
-  - Find covariance
-  - Find Stock weights
-  - Calculate Portfolio Variance/Volatility
-  - Analyze Diversifiable/undiversifiable risk
-  - Recommend Risk Corrections
-
-
-3. *Chart the Efficient Frontier*
-
-4. *Charting*
-  - Trading price
-  - Volume
-  - Bollinger bands
-
-
-5. *Monte Carlo Analysis*
-
-6. *Dividend Stock Analysis*
-
-## License
 MIT License
 
 Copyright (c) 2020 Liam Morrow
