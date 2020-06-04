@@ -5,10 +5,19 @@
 # %% codecell
 import pandas as pd
 import pandas_datareader as wb
-class stock_fetch:    #function to pull multiple stocks into several dataframes from yahoo.
+class stock_fetch:    
     def yahoo_stock_fetch(tickers,start_date,end_date):
-        #remove commas
-        #should add in a check for unique, remove spaces, and check to see if these are needed
+        """ function to pull multiple stocks into several dataframes from yahoo
+
+        Args:
+            tickers ([str]): [stock or fund tickers]
+            start_date ([datetime]): [date time]
+            end_date ([datetime]): [date time]
+
+        Returns:
+            [DataFrame]: [Dataframe with date, open, close, high, low, adj close]
+        """
+        # TODO: should add in a check for unique, remove spaces, and check to see if these are needed
         tickers = tickers.split(',')
         #create a dictionary to sort the dataframes
         d = {}
