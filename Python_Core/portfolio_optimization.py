@@ -1,5 +1,15 @@
 # %% markdown
 # Portfolio Optimization - Risk
+# %% add path
+if __name__ == '__main__' and __package__ is None:
+    import sys, os.path
+    sys.path
+    # append parent of the directory the current file is in
+    inputfilename1 = r"C:\Users\Liam Morrow\Documents\Onedrive\Python scripts\_01 Liam Stock Analysis Project\stock_analysis\Python_Core"
+    inputfilename2 = r"C:\Users\l.morrow\OneDrive\Python scripts\_01 Liam Stock Analysis Project\stock_analysis\Python_Core"
+    sys.path.append(inputfilename1)
+    sys.path.append(inputfilename2)
+
 # %% imports
 import numpy as np
 import pandas as pd
@@ -21,20 +31,11 @@ import scipy.optimize as sco
 sns.set(style="darkgrid")
 %matplotlib inline
 
-# if __name__ == '__main__' and __package__ is None:
-#     import sys, os.path
-#     sys.path
-#     # append parent of the directory the current file is in
-#     inputfilename1 = r"C:\Users\Liam Morrow\Documents\Onedrive\Python scripts\_01 Liam Stock Analysis Project\stock_analysis\Python_Core"
-#     inputfilename2 = r"C:\Users\l.morrow\OneDrive\Python scripts\_01 Liam Stock Analysis Project\stock_analysis\Python_Core"
-#     #inputfilename = r"C:\Users\Liam Morrow\.conda\pkgs"
-#     #inputfilename = r"C:\Users\Liam Morrow\anaconda3"
-#     sys.path.append(inputfilename1)
-#     sys.path.append(inputfilename2)
+
 
 # %% fetch stock data
-# tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
-tickers="AFDIX,FXAIX,JLGRX,MEIKX"
+tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
+# tickers="AFDIX,FXAIX,JLGRX,MEIKX"
 start_date = datetime(2015,1,1)
 end_date = datetime(2020,6,1)
 stock_df = sf.yahoo_stock_fetch(tickers, start_date, end_date)
@@ -201,6 +202,8 @@ class efficient_frontier_models:
         return weights, plot_results_df, portf_results_df, tickers, cov_mat, max_sharpe_portf, min_vol_portf,avg_returns
 
     def scipy_eff_frontier(adj_close_df, n_portfolios = 1000, trading_days = 252, seed = 1, n_points_on_curve = 100,risk_free_rate=0.02):
+        """Use scipy approach to generate a efficient frontier. Returns values to use for analysis.
+        """
         returns_df = adj_close_df.pct_change().dropna()
         avg_returns = returns_df.mean() * trading_days
         cov_mat = returns_df.cov() * trading_days
@@ -314,7 +317,7 @@ class efficient_frontier_models:
         for x, y in zip(reduce_stock_selections(tickers,max_sharpe_weights_df.weights).tickers, reduce_stock_selections(tickers,max_sharpe_weights_df.weights).weights):
             print(f'{x}: {100*y:.2f}% ', end="\n", flush=True)
 
-            return min_vol_metrics,tickers,cov_mat,max_sharpe_metrics,min_vol_portf
+        return min_vol_metrics,tickers,cov_mat,max_sharpe_metrics,min_vol_portf
 
     def cvxpy_eff_frontier(adj_close_df, n_portfolios = 1000, trading_days = 252, seed = 1, n_points_on_curve = 100,risk_free_rate=0.02):
 
@@ -342,7 +345,6 @@ mc_avg_returns = mc_ef[7]
 
 # %% Scipy Run
 sc_ef = scipy_eff_frontier(adj_close_df)
-
 #weights on the eff frontier
 sc_ef_weights = sc_ef[0][1]
 #returns, volatility, sharpe_ratio
@@ -386,16 +388,18 @@ plt.show()
 fig, ax = plt.subplots(figsize=(12,6))
 ax.plot(sc_ef_plot_results_df.volatility, sc_ef_plot_results_df.returns, 'b--', linewidth=3)
 plt.scatter(sc_ef_plot_results_df.volatility,sc_ef_plot_results_df.returns,c=sc_ef_plot_results_df.sharpe,cmap='RdYlGn', alpha=1, s=.5)
-ax.plot(mc_plot_results_df['volatility'], mc_plot_results_df['returns'], 'b--')
-
-for asset_index in range(len(mc_tickers)):
-    ax.scatter(x=np.sqrt(mc_cov_mat.iloc[asset_index, asset_index]),y=mc_avg_returns[asset_index],marker='o',s=150,color='black',edgecolors='red',label=mc_tickers[asset_index])
-    ax.annotate((mc_tickers[asset_index]), (np.sqrt(mc_cov_mat.iloc[asset_index, asset_index]), (mc_avg_returns[asset_index])), xytext=(10,10), textcoords='offset points')
-
 plt.colorbar(label='Sharpe Ratio')
 ax.set(xlabel='Volatility',
        ylabel='Expected Returns',
        title='Efficient Frontier')
+#plot stock/funds on chart
+for asset_index in range(len(mc_tickers)):
+    ax.scatter(x=np.sqrt(mc_cov_mat.iloc[asset_index, asset_index]),y=mc_avg_returns[asset_index],marker='o',s=150,color='black',edgecolors='red',label=mc_tickers[asset_index])
+    ax.annotate((mc_tickers[asset_index]), (np.sqrt(mc_cov_mat.iloc[asset_index, asset_index]), (mc_avg_returns[asset_index])), xytext=(10,10), textcoords='offset points')
+#plot monte_carlo_eff_frontier overlay
+ax.plot(mc_plot_results_df['volatility'], mc_plot_results_df['returns'], 'b--')
+
+#plot scipy max sharpe min vol portfolios
 ax.scatter(x=sc_ef_max_sharpe_portf['volatility'], y=sc_ef_max_sharpe_portf['returns'], c='white',edgecolors='black', marker='*', s=200, label='Max Sharpe Ratio')
 ax.scatter(x=sc_ef_min_vol_portf['volatility'],y=sc_ef_min_vol_portf['returns'],c='white',edgecolors='black',marker='P',s=200, label='Minimum Volatility')
 ax.legend()
