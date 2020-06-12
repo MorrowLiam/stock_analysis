@@ -147,6 +147,138 @@ class covariance_models:
         #pyportfolioopt added a fix_nonpositive_semidefinite function here
         return cov
 
+    def ledoit_wolf(self, shrinkage_target="constant_variance"):
+        """
+        Calculate the Ledoit-Wolf shrinkage estimate for a particular
+        shrinkage target.
+        :param shrinkage_target: choice of shrinkage target, either ``constant_variance``,
+                                 ``single_factor`` or ``constant_correlation``. Defaults to
+                                 ``constant_variance``.
+        :type shrinkage_target: str, optional
+        :raises NotImplementedError: if the shrinkage_target is unrecognised
+        :return: shrunk sample covariance matrix
+        :rtype: np.ndarray
+        """
+        if shrinkage_target == "constant_variance":
+            X = np.nan_to_num(self.X.values)
+            shrunk_cov, self.delta = self.covariance.ledoit_wolf(X)
+        elif shrinkage_target == "single_factor":
+            shrunk_cov, self.delta = self._ledoit_wolf_single_factor()
+        elif shrinkage_target == "constant_correlation":
+            shrunk_cov, self.delta = self._ledoit_wolf_constant_correlation()
+        else:
+            raise NotImplementedError(
+                "Shrinkage target {} not recognised".format(shrinkage_target)
+            )
+
+        return self._format_and_annualize(shrunk_cov)
+
+    def _ledoit_wolf_single_factor(self):
+        """
+        Helper method to calculate the Ledoit-Wolf shrinkage estimate
+        with the Sharpe single-factor matrix as the shrinkage target.
+        See Ledoit and Wolf (2001).
+        :return: shrunk sample covariance matrix, shrinkage constant
+        :rtype: np.ndarray, float
+        """
+        X = np.nan_to_num(self.X.values)
+
+        # De-mean returns
+        t, n = np.shape(X)
+        Xm = X - X.mean(axis=0)
+        xmkt = X.mean(axis=1).reshape(t, 1)
+
+        # compute sample covariance matrix
+        sample = np.cov(np.append(Xm, xmkt, axis=1), rowvar=False) * (t - 1) / t
+        betas = sample[0:n, n].reshape(n, 1)
+        varmkt = sample[n, n]
+        sample = sample[:n, :n]
+        F = np.dot(betas, betas.T) / varmkt
+        F[np.eye(n) == 1] = np.diag(sample)
+
+        # compute shrinkage parameters
+        c = np.linalg.norm(sample - F, "fro") ** 2
+        y = Xm ** 2
+        p = 1 / t * np.sum(np.dot(y.T, y)) - np.sum(sample ** 2)
+
+        # r is divided into diagonal
+        # and off-diagonal terms, and the off-diagonal term
+        # is itself divided into smaller terms
+        rdiag = 1 / t * np.sum(y ** 2) - sum(np.diag(sample) ** 2)
+        z = Xm * np.tile(xmkt, (n,))
+        v1 = 1 / t * np.dot(y.T, z) - np.tile(betas, (n,)) * sample
+        roff1 = (
+            np.sum(v1 * np.tile(betas, (n,)).T) / varmkt
+            - np.sum(np.diag(v1) * betas.T) / varmkt
+        )
+        v3 = 1 / t * np.dot(z.T, z) - varmkt * sample
+        roff3 = (
+            np.sum(v3 * np.dot(betas, betas.T)) / varmkt ** 2
+            - np.sum(np.diag(v3).reshape(-1, 1) * betas ** 2) / varmkt ** 2
+        )
+        roff = 2 * roff1 - roff3
+        r = rdiag + roff
+
+        # compute shrinkage constant
+        k = (p - r) / c
+        delta = max(0, min(1, k / t))
+
+        # compute the estimator
+        shrunk_cov = delta * F + (1 - delta) * sample
+        return shrunk_cov, delta
+
+    def _ledoit_wolf_constant_correlation(self):
+        """
+        Helper method to calculate the Ledoit-Wolf shrinkage estimate
+        with the constant correlation matrix as the shrinkage target.
+        See Ledoit and Wolf (2003)
+        :return: shrunk sample covariance matrix, shrinkage constant
+        :rtype: np.ndarray, float
+        """
+        X = np.nan_to_num(self.X.values)
+        t, n = np.shape(X)
+
+        S = self.S  # sample cov matrix
+
+        # Constant correlation target
+        var = np.diag(S).reshape(-1, 1)
+        std = np.sqrt(var)
+        _var = np.tile(var, (n,))
+        _std = np.tile(std, (n,))
+        r_bar = (np.sum(S / (_std * _std.T)) - n) / (n * (n - 1))
+        F = r_bar * (_std * _std.T)
+        F[np.eye(n) == 1] = var.reshape(-1)
+
+        # Estimate pi
+        Xm = X - X.mean(axis=0)
+        y = Xm ** 2
+        pi_mat = np.dot(y.T, y) / t - 2 * np.dot(Xm.T, Xm) * S / t + S ** 2
+        pi_hat = np.sum(pi_mat)
+
+        # Theta matrix, expanded term by term
+        term1 = np.dot((X ** 3).T, X) / t
+        help_ = np.dot(X.T, X) / t
+        help_diag = np.diag(help_)
+        term2 = np.tile(help_diag, (n, 1)).T * S
+        term3 = help_ * _var
+        term4 = _var * S
+        theta_mat = term1 - term2 - term3 + term4
+        theta_mat[np.eye(n) == 1] = np.zeros(n)
+        rho_hat = sum(np.diag(pi_mat)) + r_bar * np.sum(
+            np.dot((1 / std), std.T) * theta_mat
+        )
+
+        # Estimate gamma
+        gamma_hat = np.linalg.norm(S - F, "fro") ** 2
+
+        # Compute shrinkage constant
+        kappa_hat = (pi_hat - rho_hat) / gamma_hat
+        delta = max(0.0, min(1.0, kappa_hat / t))
+
+        # Compute shrunk covariance matrix
+        shrunk_cov = delta * F + (1 - delta) * S
+        return shrunk_cov, delta
+
 
 #%% plot covariance
 matrix =cov_to_corr(covariance_models(adj_close_df).sample_covariance())
@@ -163,6 +295,23 @@ ax.set_yticklabels(matrix.index)
 plt.xticks(rotation=90)
 plt.tight_layout()
 plt.show()
+
+#%% plot covariance
+matrix = cov_to_corr(covariance_models(adj_close_df).ledoit_wolf())
+fig, ax = plt.subplots(figsize=(8,8))
+
+cax = ax.imshow(matrix2)
+fig.colorbar(cax)
+
+ax.set(title='Covariance Matrix')
+ax.set_xticks(np.arange(0, matrix.shape[0], 1))
+ax.set_xticklabels(matrix.index)
+ax.set_yticks(np.arange(0, matrix.shape[0], 1))
+ax.set_yticklabels(matrix.index)
+plt.xticks(rotation=90)
+plt.tight_layout()
+plt.show()
+
 
 #%% plot covariance
 matrix = cov_to_corr(covariance_models(adj_close_df).shrunk_covariance())
