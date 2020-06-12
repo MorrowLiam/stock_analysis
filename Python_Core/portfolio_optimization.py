@@ -106,7 +106,6 @@ class efficient_frontier_models:
 
     def monte_carlo_eff_frontier(adj_close_df, n_portfolios = 1000, trading_days = 252, seed = 1, n_points_on_curve = 100,risk_free_rate=0.02):
         """Use Monte Carlo approach to generate a efficient frontier. Returns values to use for analysis.
-
         Args:
             adj_close_df ([DataFrame]): A dataframe of adj close prices
             n_portfolios (int, optional): Number of random portfolios to generate. Defaults to 1000.
@@ -120,6 +119,7 @@ class efficient_frontier_models:
         #annualized average returns and the corresponding standard deviation
         returns_df = adj_close_df.pct_change().dropna()
         avg_returns = returns_df.mean() * trading_days
+        #update to call for different cov
         cov_mat = returns_df.cov() * trading_days
         tickers = returns_df.keys()
 
