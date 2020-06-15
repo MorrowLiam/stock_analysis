@@ -22,19 +22,11 @@ from pandas import ExcelFile
 from scipy.optimize import minimize
 from stock_fetch import stock_utilities as sf
 import scipy.optimize as sco
-# import cvxpy as cp
-# from pypfopt.efficient_frontier import EfficientFrontier
-# from pypfopt.expected_returns import mean_historical_return
-# from pypfopt.risk_models import CovarianceShrinkage
-# from pypfopt import Plotting
-# import pypfopt
 sns.set(style="darkgrid")
-%matplotlib inline
-
 
 # %% fetch stock data
-tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
-# tickers="AFDIX,FXAIX,JLGRX,MEIKX"
+# tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
+tickers="AFDIX,FXAIX,JLGRX,MEIKX"
 start_date = datetime(2015,1,1)
 end_date = datetime(2020,6,1)
 stock_df = sf.yahoo_stock_fetch(tickers, start_date, end_date)
@@ -279,6 +271,9 @@ class covariance_models:
         shrunk_cov = delta * F + (1 - delta) * S
         return shrunk_cov, delta
 
+    def variation_over_time (self,covariance_matrix, periods, correlation=False):
+        stock_df = sf.yahoo_stock_fetch(tickers, start_date, end_date)
+
 
 #%% plot covariance
 matrix =cov_to_corr(covariance_models(adj_close_df).sample_covariance())
@@ -300,7 +295,7 @@ plt.show()
 matrix = cov_to_corr(covariance_models(adj_close_df).ledoit_wolf())
 fig, ax = plt.subplots(figsize=(8,8))
 
-cax = ax.imshow(matrix2)
+cax = ax.imshow(matrix)
 fig.colorbar(cax)
 
 ax.set(title='Covariance Matrix')

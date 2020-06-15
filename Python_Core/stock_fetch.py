@@ -9,7 +9,7 @@ from datetime import datetime
 from pandas import ExcelWriter
 from pandas import ExcelFile
 
-class stock_utilities:    
+class stock_utilities:
     def yahoo_stock_fetch(tickers,start_date,end_date):
         """ function to pull multiple stocks into several dataframes from yahoo
 
@@ -49,7 +49,7 @@ class stock_utilities:
         !!Issues with large files!!
 
         Args:
-            file_path ([str]): Path with a filename to read from. 
+            file_path ([str]): Path with a filename to read from.
             parse (bool, optional): Parse the DataFrame to use the dates as the index. Defaults to False.
 
         Returns:
@@ -57,5 +57,3 @@ class stock_utilities:
         """
         all_sheets_df = pd.read_excel(file_path, sheet_name=None)
         return all_sheets_df
-        
-
