@@ -22,20 +22,20 @@ from pandas import ExcelFile
 from scipy.optimize import minimize
 from stock_fetch import stock_utilities as sf
 import scipy.optimize as sco
-# import cvxpy as cp
-# from pypfopt.efficient_frontier import EfficientFrontier
-# from pypfopt.expected_returns import mean_historical_return
-# from pypfopt.risk_models import CovarianceShrinkage
-# from pypfopt import Plotting
-# import pypfopt
+import cvxpy as cp
+from pypfopt.efficient_frontier import EfficientFrontier
+from pypfopt.expected_returns import mean_historical_return
+from pypfopt.risk_models import CovarianceShrinkage
+from pypfopt import Plotting
+import pypfopt
 sns.set(style="darkgrid")
-%matplotlib inline
+
 
 
 
 # %% fetch stock data
-tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
-# tickers="AFDIX,FXAIX,JLGRX,MEIKX"
+# tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
+tickers="AFDIX,FXAIX,JLGRX,MEIKX"
 start_date = datetime(2015,1,1)
 end_date = datetime(2020,6,1)
 stock_df = sf.yahoo_stock_fetch(tickers, start_date, end_date)
@@ -66,8 +66,12 @@ adj_close_df
 
 class efficient_frontier_models:
 
-    def pyfolio_eff_frontier(adj_close_df,cov_type = "ledoit_wolf",returns = False,risk_free_rate=0.02):
-        """Use pyfolio to generate a efficient frontier. Comes with less control over the plot. Returns values to use for analysis.
+    def __init__(self):
+        """__init_()
+           """
+
+    def pyfolio_eff_frontier(self, adj_close_df,cov_type = "ledoit_wolf",returns = False,risk_free_rate=0.02):
+        """ Use pyfolio to generate a efficient frontier. Comes with less control over the plot. Returns values to use for analysis.
 
         Args:
             adj_close_df ([DataFrame]): A dataframe of either adj close prices or returns
@@ -76,8 +80,8 @@ class efficient_frontier_models:
             risk_free_rate (float, optional): Risk Free rate modifier. Defaults to 0.02.
 
         Returns:
-            [tuple]: [0] weights of the max sharpe value [1] mean historical return [2] Covariance matrix
-        """
+            [tuple]: [0] weights of the max sharpe value [1] mean historical return [2] Covariance matrix """
+
         #find the average historical returns from list of returns or prices
         mu = mean_historical_return(adj_close_df, returns_data=returns)
         # choose the type of covariance matrix to run analysis on. simple is most basic. ledoit_wolf can be used to select portfolios with significantly lower out-of-sample variance than a set of existing estimators
@@ -104,8 +108,8 @@ class efficient_frontier_models:
         fxn()
         return cleaned_weights,mu,S
 
-    def monte_carlo_eff_frontier(adj_close_df, n_portfolios = 1000, trading_days = 252, seed = 1, n_points_on_curve = 100,risk_free_rate=0.02):
-        """Use Monte Carlo approach to generate a efficient frontier. Returns values to use for analysis.
+    def monte_carlo_eff_frontier(self, adj_close_df, n_portfolios = 1000, trading_days = 252, seed = 1, n_points_on_curve = 100,risk_free_rate=0.02):
+        """ Use Monte Carlo approach to generate a efficient frontier. Returns values to use for analysis.
         Args:
             adj_close_df ([DataFrame]): A dataframe of adj close prices
             n_portfolios (int, optional): Number of random portfolios to generate. Defaults to 1000.
@@ -114,8 +118,9 @@ class efficient_frontier_models:
             n_points_on_curve (int, optional): Number of points on the eff frontier curve. Defaults to 100.
 
         Returns:
-            [tuple]: [0] weights of all portfolios, [1] results for the optimal portfolios along the efficient frontier, [2] results of the random portfolios including returns, volatility, and sharpe ratio, [3]stock tickers, [4] covariance matrix of all the stocks analyzed
-        """
+            [tuple]: [0] weights of all portfolios, [1] results for the optimal portfolios along the efficient frontier, [2] results of the random portfolios including returns, volatility, and sharpe ratio, [3]stock tickers, [4] covariance matrix of all the stocks analyzed 
+            """
+
         #annualized average returns and the corresponding standard deviation
         returns_df = adj_close_df.pct_change().dropna()
         avg_returns = returns_df.mean() * trading_days
@@ -201,9 +206,10 @@ class efficient_frontier_models:
 
         return weights, plot_results_df, portf_results_df, tickers, cov_mat, max_sharpe_portf, min_vol_portf,avg_returns
 
-    def scipy_eff_frontier(adj_close_df, n_portfolios = 1000, trading_days = 252, seed = 1, n_points_on_curve = 100,risk_free_rate=0.02):
-        """Use scipy approach to generate a efficient frontier. Returns values to use for analysis.
+    def scipy_eff_frontier(self, adj_close_df, n_portfolios = 1000, trading_days = 252, seed = 1, n_points_on_curve = 100,risk_free_rate=0.02):
+        """ Use scipy approach to generate a efficient frontier. Returns values to use for analysis. 
         """
+
         returns_df = adj_close_df.pct_change().dropna()
         avg_returns = returns_df.mean() * trading_days
         cov_mat = returns_df.cov() * trading_days
@@ -319,9 +325,9 @@ class efficient_frontier_models:
 
         return min_vol_metrics,tickers,cov_mat,max_sharpe_metrics,min_vol_portf
 
-    def cvxpy_eff_frontier(adj_close_df, n_portfolios = 1000, trading_days = 252, seed = 1, n_points_on_curve = 100,risk_free_rate=0.02):
+    # def cvxpy_eff_frontier(adj_close_df, n_portfolios = 1000, trading_days = 252, seed = 1, n_points_on_curve = 100,risk_free_rate=0.02):
 
-        return
+    #     return
 
 # %% Monte Carlo Run
 mc_ef = efficient_frontier_models.monte_carlo_eff_frontier(adj_close_df,n_portfolios = 3000,n_points_on_curve=100)
@@ -344,7 +350,7 @@ mc_avg_returns = mc_ef[7]
 
 
 # %% Scipy Run
-sc_ef = scipy_eff_frontier(adj_close_df)
+sc_ef = efficient_frontier_models.scipy_eff_frontier(adj_close_df)
 #weights on the eff frontier
 sc_ef_weights = sc_ef[0][1]
 #returns, volatility, sharpe_ratio
