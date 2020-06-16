@@ -12,6 +12,7 @@ if __name__ == '__main__' and __package__ is None:
 
 # %% imports
 import numpy as np
+import math
 import pandas as pd
 from pandas_datareader import data as wb
 import matplotlib.pyplot as plt
@@ -25,10 +26,10 @@ import scipy.optimize as sco
 sns.set(style="darkgrid")
 
 # %% fetch stock data
-# tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
-tickers="AFDIX,FXAIX,JLGRX,MEIKX"
-start_date = datetime(2015,1,1)
-end_date = datetime(2020,6,1)
+tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
+# tickers="AFDIX,FXAIX,JLGRX,MEIKX"
+start_date = pd.to_datetime('1/1/2015', utc=True)
+end_date = pd.to_datetime('1/6/2020', utc=True)
 stock_df = sf.yahoo_stock_fetch(tickers, start_date, end_date)
 
 
@@ -66,6 +67,66 @@ def cov_to_corr(cov_matrix):
     corr = np.dot(Dinv, np.dot(cov_matrix, Dinv))
     return pd.DataFrame(corr, index=cov_matrix.index, columns=cov_matrix.index)
 
+def variation_over_time(prices,frequency=252,periods=8,covariance='ledoit_wolf',correlation=True,returns_data=False):
+    date_delta = end_date - start_date
+    divided_days = date_delta/periods
+    times = pd.date_range(start_date, periods=periods, freq=divided_days,normalize=True)
+    subset_df = {}
+    counter=0
+    for i in times:
+        counter+=1
+        #reset index and set timezone.
+        sub_df = prices.tz_localize('UTC', level=0).reset_index()
+        #spec start date
+        subset_start_date = pd.to_datetime(i, utc= True)
+        #specficy a subset
+        subset_df[counter] = sub_df.loc[(sub_df['Date'] > subset_start_date) & (sub_df['Date'] < end_date)]
+    for i in subset_df.keys():
+        subset_df[i].set_index('Date', inplace=True)
+
+    if covariance == 'ledoit_wolf':
+        matrix={}
+        for i in subset_df.keys():
+            matrix[i] = covariance_models(subset_df[i],returns_data=returns_data, frequency=frequency).ledoit_wolf()
+    else:
+        #sample covariance
+        matrix={}
+        for i in subset_df.keys():
+            matrix[i] = subset_df[i].pct_change().dropna(how="all").cov()*frequency
+
+    if correlation == True :
+        for i in subset_df.keys():
+            matrix[i] = cov_to_corr(matrix[i])
+    else:
+        pass
+    return matrix,times
+
+def heatmap(x, y, size, scale, times):
+    # Mapping from column names to integer coordinates
+    x_labels = [v for v in sorted(x.unique())]
+    y_labels = [v for v in sorted(y.unique())]
+    x_to_num = {p[1]:p[0] for p in enumerate(x_labels)}
+    y_to_num = {p[1]:p[0] for p in enumerate(y_labels)}
+
+    size_scale = scale
+    ax.scatter(
+        x=x.map(x_to_num), # Use mapping for x
+        y=y.map(y_to_num), # Use mapping for y
+        s=size * size_scale, # Vector of square sizes, proportional to size parameter
+        marker='s' # Use square as scatterplot marker
+    )
+    # Show column labels on the axes
+    ax.set(title='Variance Matrix \n'+ str(times))
+    ax.set_xticks([x_to_num[v] for v in x_labels])
+    ax.set_xticklabels(x_labels, rotation=45, horizontalalignment='right')
+    ax.set_yticks([y_to_num[v] for v in y_labels])
+    ax.set_yticklabels(y_labels)
+    ax.grid(False, 'major')
+    ax.grid(True, 'minor')
+    ax.set_xticks([t + 0.5 for t in ax.get_xticks()], minor=True)
+    ax.set_yticks([t + 0.5 for t in ax.get_yticks()], minor=True)
+    ax.set_xlim([-0.5, max([v for v in x_to_num.values()]) + 0.5])
+    ax.set_ylim([-0.5, max([v for v in y_to_num.values()]) + 0.5])
 
 class covariance_models:
 
@@ -271,55 +332,95 @@ class covariance_models:
         shrunk_cov = delta * F + (1 - delta) * S
         return shrunk_cov, delta
 
-    def variation_over_time (self,covariance_matrix, periods, correlation=False):
-        stock_df = sf.yahoo_stock_fetch(tickers, start_date, end_date)
 
 
 #%% plot covariance
-matrix =cov_to_corr(covariance_models(adj_close_df).sample_covariance())
-fig, ax = plt.subplots(figsize=(8,8))
+# matrix =cov_to_corr(covariance_models(adj_close_df).sample_covariance())
+# fig, ax = plt.subplots(figsize=(8,8))
+#
+# cax = ax.imshow(matrix)
+# fig.colorbar(cax)
+#
+# ax.set(title='Covariance Matrix')
+# ax.set_xticks(np.arange(0, matrix.shape[0], 1))
+# ax.set_xticklabels(matrix.index)
+# ax.set_yticks(np.arange(0, matrix.shape[0], 1))
+# ax.set_yticklabels(matrix.index)
+# plt.xticks(rotation=90)
+# plt.tight_layout()
+# plt.show()
+#
+# #%% plot covariance
+# matrix = cov_to_corr(covariance_models(adj_close_df).ledoit_wolf())
+# fig, ax = plt.subplots(figsize=(8,8))
+#
+# cax = ax.imshow(matrix)
+# fig.colorbar(cax)
+#
+# ax.set(title='Covariance Matrix')
+# ax.set_xticks(np.arange(0, matrix.shape[0], 1))
+# ax.set_xticklabels(matrix.index)
+# ax.set_yticks(np.arange(0, matrix.shape[0], 1))
+# ax.set_yticklabels(matrix.index)
+# plt.xticks(rotation=90)
+# plt.tight_layout()
+# plt.show()
+#
+#
+# #%% plot covariance
+# matrix = cov_to_corr(covariance_models(adj_close_df).shrunk_covariance())
+# fig, ax = plt.subplots(figsize=(8,8))
+#
+# cax = ax.imshow(matrix)
+# fig.colorbar(cax)
+#
+# ax.set(title='Covariance Matrix')
+# ax.set_xticks(np.arange(0, matrix.shape[0], 1))
+# ax.set_xticklabels(matrix.index)
+# ax.set_yticks(np.arange(0, matrix.shape[0], 1))
+# ax.set_yticklabels(matrix.index)
+# plt.xticks(rotation=90)
+# plt.tight_layout()
+# plt.show()
 
-cax = ax.imshow(matrix)
-fig.colorbar(cax)
+#%% plot covariance over time
+# matrix = variation_over_time(prices = adj_close_df,frequency=252,periods=10,covariance='ledoit_wolf',correlation=True ,returns_data=False)
+# covariance_matrix = matrix[0]
+# times = matrix[1]
+#
+# covariance_matrix
+#
+# fig = plt.figure(figsize=(10,10))
+# fig.subplots_adjust(hspace=.8, wspace=.8)
+# for i in range(1, len(covariance_matrix)):
+#     ax = fig.add_subplot(round(math.sqrt(len(covariance_matrix))), round(math.sqrt(len(covariance_matrix))), i)
+#
+#     cax = ax.imshow(covariance_matrix[i])
+#     fig.colorbar(cax)
+#
+#     ax.set(title='Covariance Matrix \n'+ str(times[i]))
+#     ax.set_xticks(np.arange(0, covariance_matrix[i].shape[0], 1))
+#     ax.set_xticklabels(covariance_matrix[i].index)
+#     ax.set_yticks(np.arange(0, covariance_matrix[i].shape[0], 1))
+#     ax.set_yticklabels(covariance_matrix[i].index)
+#     plt.xticks(rotation=90)
+#
+# plt.tight_layout()
+# plt.show()
 
-ax.set(title='Covariance Matrix')
-ax.set_xticks(np.arange(0, matrix.shape[0], 1))
-ax.set_xticklabels(matrix.index)
-ax.set_yticks(np.arange(0, matrix.shape[0], 1))
-ax.set_yticklabels(matrix.index)
-plt.xticks(rotation=90)
-plt.tight_layout()
-plt.show()
+#%% plot covariance over time
+#select covariance matrix, and periods to show
+matrix = variation_over_time(prices = adj_close_df,frequency=252,periods=2,covariance='ledoit_wolf',correlation=True ,returns_data=False)
+corr = pd.melt(matrix[0][1].reset_index(), id_vars='index') # Unpivot the dataframe, so we can get pair of arrays for x and y
+corr.columns = ['x', 'y', 'value']
+normalized = (corr['value']-min(corr['value']))/(max(corr['value'])-min(corr['value']))
 
-#%% plot covariance
-matrix = cov_to_corr(covariance_models(adj_close_df).ledoit_wolf())
-fig, ax = plt.subplots(figsize=(8,8))
+matrix
 
-cax = ax.imshow(matrix)
-fig.colorbar(cax)
-
-ax.set(title='Covariance Matrix')
-ax.set_xticks(np.arange(0, matrix.shape[0], 1))
-ax.set_xticklabels(matrix.index)
-ax.set_yticks(np.arange(0, matrix.shape[0], 1))
-ax.set_yticklabels(matrix.index)
-plt.xticks(rotation=90)
-plt.tight_layout()
-plt.show()
-
-
-#%% plot covariance
-matrix = cov_to_corr(covariance_models(adj_close_df).shrunk_covariance())
-fig, ax = plt.subplots(figsize=(8,8))
-
-cax = ax.imshow(matrix2)
-fig.colorbar(cax)
-
-ax.set(title='Covariance Matrix')
-ax.set_xticks(np.arange(0, matrix.shape[0], 1))
-ax.set_xticklabels(matrix.index)
-ax.set_yticks(np.arange(0, matrix.shape[0], 1))
-ax.set_yticklabels(matrix.index)
-plt.xticks(rotation=90)
+fig = plt.figure(figsize=(10,10))
+fig.subplots_adjust(hspace=.8, wspace=.8)
+for i in range(1, len(matrix[0])):
+    ax = fig.add_subplot(round(math.sqrt(len(matrix[0]))), round(math.sqrt(len(matrix[0]))), i)
+    ax = heatmap(x=corr['x'],y=corr['y'],size=normalized,scale = 400, times=times[i])
 plt.tight_layout()
 plt.show()
