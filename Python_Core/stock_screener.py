@@ -17,15 +17,18 @@ import seaborn as sns
 from datetime import datetime
 from stock_utilities import stock_utilities as su
 sns.set(style="darkgrid")
+from statsmodels.tsa.seasonal import seasonal_decompose
+from fbprophet import Prophet
 
 # %% fetch data
 tickers="T,AAPL,FB"
-start_date = pd.to_datetime('9/25/2015', utc=True)
+start_date = pd.to_datetime('1/1/2019', utc=True)
 end_date = pd.to_datetime('6/16/2020', utc=True)
 #fetch yahoo stock information and save to a variable.
 stock_df = su.yahoo_stock_fetch(tickers, start_date, end_date)
 #Calculate a number of typical techincal indicators
 analysis_df = su.typ_tech_analysis_df(stock_df)
+
 
 # %% Plot data
 #test plot of RSI,Close,and BOlinger Bands
@@ -36,6 +39,32 @@ analysis_df['FB']['Close: 30 Day Mean'].plot(figsize=(16,6))
 analysis_df['FB']['30 Day Upper Band'].plot(figsize=(16,6))
 analysis_df['FB']['30 Day Lower Band'].plot(figsize=(16,6))
 ax.legend()
+plt.tight_layout()
+plt.show()
+
+# %% Plot data
+
+df = pd.DataFrame()
+
+df['adj_close'] = analysis_df['FB']['Adj Close']
+n_period = 30
+df['rolling_mean'] = analysis_df['FB']['Adj Close'].rolling(window=n_period).mean()
+df['rolling_std'] = analysis_df['FB']['Adj Close'].rolling(window=n_period).std()
+
+
+res = decomposition_results = seasonal_decompose(df['adj_close'],model='multiplicative', period=n_period)
+
+fig, (ax1,ax2,ax3,ax4) = plt.subplots(4,1, figsize=(15,12))
+ax1.set(title='Observed')
+ax2.set(title='Trend')
+ax3.set(title='Seasonal')
+ax4.set(title='Residual')
+
+res.observed.plot(ax=ax1)
+res.trend.plot(ax=ax2)
+res.seasonal.plot(ax=ax3)
+res.resid.plot(ax=ax4)
+
 plt.tight_layout()
 plt.show()
 

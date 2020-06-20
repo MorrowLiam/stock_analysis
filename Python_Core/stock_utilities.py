@@ -22,11 +22,11 @@ class stock_utilities:
         # TODO: should add in a check for unique, remove spaces, and check to see if these are needed
         tickers = tickers.split(',')
         #create a dictionary to sort the dataframes
-        d = {}
+        df = {}
         for tickers in tickers:
-            d[tickers] = pd.DataFrame()
-            d[tickers] = wb.DataReader(tickers, data_source='yahoo', start=(start_date), end=(end_date))
-        return d
+            df[tickers] = pd.DataFrame()
+            df[tickers] = wb.DataReader(tickers, data_source='yahoo', start=(start_date), end=(end_date))
+        return df
 
     def write_to_excel(df,file_name="funds.xlsx"):
         """Save dataframe(s) to excel
