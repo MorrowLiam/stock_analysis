@@ -25,34 +25,39 @@ handler.setFormatter(fmt)
 logger.addHandler(handler)
 
 # %% Oauth
-def oauth():
-    """Allows user authorization for the sample application with OAuth 1"""
-    etrade = OAuth1Service(
-        name="etrade",
-        consumer_key=CONSUMER_KEY,
-        consumer_secret=CONSUMER_SECRET,
-        request_token_url="https://api.etrade.com/oauth/request_token",
-        access_token_url="https://api.etrade.com/oauth/access_token",
-        authorize_url="https://us.etrade.com/e/t/etws/authorize?key={}&token={}",
-        base_url="https://api.etrade.com")
+class Etrade_Connect:
+    def __init__(self):
+        pass
 
-    # Step 1: Get OAuth 1 request token and secret
-    request_token, request_token_secret = etrade.get_request_token(
-        params={"oauth_callback": "oob", "format": "json"})
 
-    # Step 2: Go through the authentication flow. Login to E*TRADE.
-    # After you login, the page will provide a text code to enter.
-    authorize_url = etrade.authorize_url.format(etrade.consumer_key, request_token)
-    webbrowser.open(authorize_url)
-    text_code = input("Please accept agreement and enter text code from browser: ")
+    def oauth(self):
+        """Allows user authorization for the sample application with OAuth 1"""
+        etrade = OAuth1Service(
+            name="etrade",
+            consumer_key=CONSUMER_KEY,
+            consumer_secret=CONSUMER_SECRET,
+            request_token_url="https://api.etrade.com/oauth/request_token",
+            access_token_url="https://api.etrade.com/oauth/access_token",
+            authorize_url="https://us.etrade.com/e/t/etws/authorize?key={}&token={}",
+            base_url="https://api.etrade.com")
 
-    # Step 3: Exchange the authorized request token for an authenticated OAuth 1 session
-    session = etrade.get_auth_session(request_token,
-                                  request_token_secret,
-                                  params={"oauth_verifier": text_code})
-    base_url = "https://api.etrade.com"
+        # Step 1: Get OAuth 1 request token and secret
+        request_token, request_token_secret = etrade.get_request_token(
+            params={"oauth_callback": "oob", "format": "json"})
 
-    return (session, base_url)
+        # Step 2: Go through the authentication flow. Login to E*TRADE.
+        # After you login, the page will provide a text code to enter.
+        authorize_url = etrade.authorize_url.format(etrade.consumer_key, request_token)
+        webbrowser.open(authorize_url)
+        text_code = input("Please accept agreement and enter text code from browser: ")
+
+        # Step 3: Exchange the authorized request token for an authenticated OAuth 1 session
+        session = etrade.get_auth_session(request_token,
+                                    request_token_secret,
+                                    params={"oauth_verifier": text_code})
+        base_url = "https://api.etrade.com"
+
+        return (session, base_url)
 
 # %% Accounts
 class Accounts:
@@ -84,7 +89,8 @@ class Accounts:
             logger.debug("Response Body: %s", json.dumps(parsed, indent=4, sort_keys=True))
             data = response.json()
             accounts = data["AccountListResponse"]["Accounts"]["Account"]
-            return accounts
+            acct_df = pd.DataFrame(accounts)
+            return acct_df
 
         else:
             # Handle errors
@@ -129,7 +135,7 @@ class Accounts:
             else:
                 print("Error: Portfolio API service error")
 
-    def portfolio_dataframe(self,acct_id_keys):
+    def portfolio_dataframe(self,acct_id_keys,accounts):
         """Function used to parse data from API into a Pandas Dataframe format. 
 
         Args:
@@ -183,7 +189,7 @@ class Accounts:
 
         #concat the individual df into one master df.
         overall_df = pd.concat(acc_df.values(), ignore_index=True)
-        print('DataFrame Below:')
+        print('DataFrame Complete :)')
         return overall_df
 
     def balance(self,acct_df):
@@ -263,118 +269,171 @@ class Accounts:
             print('DataFrame Below:')
             return overall_df
                         
-    def list_transactions(self,acct_df):
+    def list_transactions(self,acct_id):
         """
         Calls account balance API to retrieve the current balance and related details for a specified account
 
         :param self: Pass in parameters authenticated session and information on selected account
         """
-        valid_accounts = []
-        for i in range(0,len(acct_id_keys)):
-            try:
-                selection = accounts.fetch_portfolio(acct_id_keys[i])[0]
-                valid_accounts.append(selection)
-                print('Valid Account')
-            except TypeError:
-                pass 
 
         results_df = {}
-        #for loop to go through each account
         data=[]
-        # accountId , accountType, accountDescription, cashAvailableForInvestment, cashAvailableForWithdrawal, totalAvailableForWithdrawal, settledCashForInvestment, cashBuyingPower, totalAccountValue, netMv, netMvLong, netMvShort = ([] for i in range(12))
-        print(valid_accounts)
-        for i in range(0,len(valid_accounts)):
-            # URL for the API endpoint
-            url = self.base_url + "/v1/accounts/" + str(valid_accounts[i]) + "/transactions?count=3.json"
+        accountId,transactionId,transactionType,transactionDate,postDate,amount,description,displaySymbol,quantity,price,settlementCurrency,settlementDate = ([] for i in range(12))
+        # URL for the API endpoint
+        url = self.base_url + "/v1/accounts/" + str(acct_id) + "/transactions.json"
 
-            # Add parameters and header information
-            headers = {"consumerkey": config["DEFAULT"]["CONSUMER_KEY"]}
+        # Make API call for GET request
+        response = self.session.get(url)
+        logger.debug("Request url: %s", url)
+        logger.debug("Request Header: %s", response.request.headers)
+        
+        # Handle and parse response
+        if response is not None and response.status_code == 200:
+            parsed = json.loads(response.text)
+            logger.debug("Response Body: %s", json.dumps(parsed, indent=4, sort_keys=True))
+            data = response.json()
+            for n in range(0,(len(data['TransactionListResponse']['Transaction']))):
+                accountId.append(data['TransactionListResponse']['Transaction'][n]['accountId'])
+                transactionId.append(data['TransactionListResponse']['Transaction'][n]['transactionId'])
+                transactionType.append(data['TransactionListResponse']['Transaction'][n]['transactionType'])
+                transactionDate.append(data['TransactionListResponse']['Transaction'][n]['transactionDate'])
+                postDate.append(data['TransactionListResponse']['Transaction'][n]['postDate'])
+                amount.append(data['TransactionListResponse']['Transaction'][n]['amount'])
+                description.append(data['TransactionListResponse']['Transaction'][n]['description'])
+                try:
+                    displaySymbol.append(data['TransactionListResponse']['Transaction'][n]['brokerage']['product']['symbol'])
+                except:
+                    displaySymbol.append('NA')
+                quantity.append(data['TransactionListResponse']['Transaction'][n]['brokerage']['quantity'])
+                price.append(data['TransactionListResponse']['Transaction'][n]['brokerage']['price'])
+                settlementCurrency.append(data['TransactionListResponse']['Transaction'][n]['brokerage']['settlementCurrency'])
+                settlementDate.append(data['TransactionListResponse']['Transaction'][n]['brokerage']['settlementDate'])
+           
+        else:
+            logger.debug("Response Body: %s", response)
+            print("Error: Quote API service error")
 
-            # Make API call for GET request
-            response = self.session.get(url, header_auth=True,headers=headers)
-            logger.debug("Request url: %s", url)
-            logger.debug("Request Header: %s", response.request.headers)
-            
+        results=[]
+        columns=[]
+        results = zip(accountId,transactionId,displaySymbol,description,transactionType,settlementDate,transactionDate,postDate,amount,quantity,price,settlementCurrency)
+        columns = ('Account ID','Transaction ID','Symbol','Description','Transaction Type','Transaction Date','Settlement Date','Post Date','Amount','Quantity','Price','Settlement Currency')
+        #create individual df for each account.
+        results_df = pd.DataFrame(results, columns=(columns))
+
+        print('DataFrame Below:')
+        return results_df
+
+
+# %% Market
+class Market:
+    def __init__(self, session, base_url):
+        self.session = session
+        self.base_url = base_url
+
+    def quotes(self,symbols):
+        """
+        Calls quotes API to provide quote details for equities, options, and mutual funds
+
+        :param self: Passes authenticated session in parameter
+        """
+        results_df = {}
+        data=[]
+        dateTime,quoteStatus,securityType,symbol,companyName,ask,askSize,bid,bidSize,changeClose,changeClosePercentage,dividend,eps,estEarnings,exDividendDate,high,high52,lastTrade,low,low52,open_price,openInterest,previousClose,previousDayVolume,primaryExchange,totalVolume,marketCap,sharesOutstanding,nextEarningDate,beta,div_yield,declaredDividend,dividendPayableDate,pe,week52LowDate,week52HiDate,intrinsicValue= ([] for i in range(37))
+        # URL for the API endpoint
+        url = self.base_url + "/v1/market/quote/" + symbols + ".json"
+
+        # Make API call for GET request
+        response = self.session.get(url)
+        logger.debug("Request Header: %s", response.request.headers)
+
+        if response is not None and response.status_code == 200:
+
+            parsed = json.loads(response.text)
+            logger.debug("Response Body: %s", json.dumps(parsed, indent=4, sort_keys=True))
+
             # Handle and parse response
-            if response is not None and response.status_code == 200:
-                parsed = json.loads(response.text)
-                logger.debug("Response Body: %s", json.dumps(parsed, indent=4, sort_keys=True))
-                data = response.json()
-                print(data)
-        #         accountId.append(data['BalanceResponse']['accountId'])
-        #         accountType.append(data['BalanceResponse']['accountType'])
-        #         accountDescription.append(data['BalanceResponse']['accountDescription'])
-        #         cashAvailableForInvestment.append(data['BalanceResponse']['accountType'])
-        #         cashAvailableForWithdrawal.append(data['BalanceResponse']['Computed']['cashAvailableForWithdrawal'])
-        #         totalAvailableForWithdrawal.append(data['BalanceResponse']['Computed']['totalAvailableForWithdrawal'])
-        #         settledCashForInvestment.append(data['BalanceResponse']['Computed']['settledCashForInvestment'])
-        #         cashBuyingPower.append(data['BalanceResponse']['Computed']['cashBuyingPower'])
-        #         totalAccountValue.append(data['BalanceResponse']['Computed']['RealTimeValues']['totalAccountValue'])
-        #         netMv.append(data['BalanceResponse']['Computed']['RealTimeValues']['netMv'])
-        #         netMvLong.append(data['BalanceResponse']['Computed']['RealTimeValues']['netMvLong'])
-        #         netMvShort.append(data['BalanceResponse']['Computed']['RealTimeValues']['netMvShort'])
-
-            # else:
-            #     # Handle errors
-            #     logger.debug("Response Body: %s", response.text)
-            #     if response is not None and response.headers['Content-Type'] == 'application/json' \
-            #             and "Error" in response.json() and "message" in response.json()["Error"] \
-            #             and response.json()["Error"]["message"] is not None:
-            #         print("Error: " + response.json()["Error"]["message"])
-            #     else:
-            #         print("Error: Balance API service error")
+            data = response.json()
+            #TODO there needs to be a cleaner way of writting this.
+            dateTime.append(data['QuoteResponse']['QuoteData'][0]['dateTime'])
+            quoteStatus.append(data['QuoteResponse']['QuoteData'][0]['quoteStatus'])
+            securityType.append(data['QuoteResponse']['QuoteData'][0]['Product']['securityType'])
+            symbol.append(data['QuoteResponse']['QuoteData'][0]['Product']['symbol'])
+            companyName.append(data['QuoteResponse']['QuoteData'][0]['All']['companyName'])
+            ask.append(data['QuoteResponse']['QuoteData'][0]['All']['ask'])
+            askSize.append(data['QuoteResponse']['QuoteData'][0]['All']['askSize'])
+            bid.append(data['QuoteResponse']['QuoteData'][0]['All']['bid'])
+            bidSize.append(data['QuoteResponse']['QuoteData'][0]['All']['bidSize'])
+            changeClose.append(data['QuoteResponse']['QuoteData'][0]['All']['changeClose'])
+            changeClosePercentage.append(data['QuoteResponse']['QuoteData'][0]['All']['changeClosePercentage'])
+            dividend.append(data['QuoteResponse']['QuoteData'][0]['All']['dividend'])
+            eps.append(data['QuoteResponse']['QuoteData'][0]['All']['eps'])
+            estEarnings.append(data['QuoteResponse']['QuoteData'][0]['All']['estEarnings'])
+            exDividendDate.append(data['QuoteResponse']['QuoteData'][0]['All']['exDividendDate'])
+            high.append(data['QuoteResponse']['QuoteData'][0]['All']['high'])
+            high52.append(data['QuoteResponse']['QuoteData'][0]['All']['high52'])
+            lastTrade.append(data['QuoteResponse']['QuoteData'][0]['All']['lastTrade'])
+            low.append(data['QuoteResponse']['QuoteData'][0]['All']['low'])
+            low52.append(data['QuoteResponse']['QuoteData'][0]['All']['low52'])
+            open_price.append(data['QuoteResponse']['QuoteData'][0]['All']['open'])
+            openInterest.append(data['QuoteResponse']['QuoteData'][0]['All']['openInterest'])
+            previousClose.append(data['QuoteResponse']['QuoteData'][0]['All']['previousClose'])
+            previousDayVolume.append(data['QuoteResponse']['QuoteData'][0]['All']['previousDayVolume'])
+            primaryExchange.append(data['QuoteResponse']['QuoteData'][0]['All']['primaryExchange'])
+            totalVolume.append(data['QuoteResponse']['QuoteData'][0]['All']['totalVolume'])
+            marketCap.append(data['QuoteResponse']['QuoteData'][0]['All']['marketCap'])
+            sharesOutstanding.append(data['QuoteResponse']['QuoteData'][0]['All']['sharesOutstanding'])
+            nextEarningDate.append(data['QuoteResponse']['QuoteData'][0]['All']['nextEarningDate'])
+            beta.append(data['QuoteResponse']['QuoteData'][0]['All']['beta'])
+            div_yield.append(data['QuoteResponse']['QuoteData'][0]['All']['yield'])
+            declaredDividend.append(data['QuoteResponse']['QuoteData'][0]['All']['declaredDividend'])
+            dividendPayableDate.append(data['QuoteResponse']['QuoteData'][0]['All']['dividendPayableDate'])
+            pe.append(data['QuoteResponse']['QuoteData'][0]['All']['pe'])
+            week52LowDate.append(data['QuoteResponse']['QuoteData'][0]['All']['week52LowDate'])
+            week52HiDate.append(data['QuoteResponse']['QuoteData'][0]['All']['week52HiDate'])
+            intrinsicValue.append(data['QuoteResponse']['QuoteData'][0]['All']['intrinsicValue'])
 
             
 
         else:
-            # Handle errors
-            logger.debug("Response Body: %s", response.text)
-            if response is not None and response.headers['Content-Type'] == 'application/json' \
-                    and "Error" in response.json() and "message" in response.json()["Error"] \
-                    and response.json()["Error"]["message"] is not None:
-                print("Error: " + response.json()["Error"]["message"])
-            else:
-                print("Error: Balance API service error")
+            logger.debug("Response Body: %s", response)
+            print("Error: Quote API service error")
+
+        results=[]
+        columns=[]
+        results = zip(dateTime,quoteStatus,securityType,symbol,companyName,ask,askSize,bid,bidSize,changeClose,changeClosePercentage,dividend,eps,estEarnings,exDividendDate,high,high52,lastTrade,low,low52,open_price,openInterest,previousClose,previousDayVolume,primaryExchange,totalVolume,marketCap,sharesOutstanding,nextEarningDate,beta,div_yield,declaredDividend,dividendPayableDate,pe,week52LowDate,week52HiDate,intrinsicValue)
+        columns = ('dateTime','quoteStatus','securityType','symbol','companyName','ask','askSize','bid','bidSize','changeClose','changeClosePercentage','dividend','eps','estEarnings','exDividendDate','high','high52','lastTrade','low','low52','open_price','openInterest','previousClose','previousDayVolume','primaryExchange','totalVolume','marketCap','sharesOutstanding','nextEarningDate','beta','div_yield','declaredDividend','dividendPayableDate','pe','week52LowDate','week52HiDate','intrinsicValue')
+
+        #create individual df for each account.
+        results_df = pd.DataFrame(results, columns=(columns))
+
+        print('DataFrame Below:')
+        return results_df
 
 
-        # results=[]
-        # columns=[]
-        # results = zip(accountId , accountType, accountDescription, cashAvailableForInvestment, cashAvailableForWithdrawal, totalAvailableForWithdrawal, settledCashForInvestment, cashBuyingPower, totalAccountValue, netMv, netMvLong, netMvShort)
-        # columns = ('Account ID' , 'Account Type', 'Account Description', 'Cash Availble For Investment', 'Cash Available For Withdraw', 'Total Available For Withdraw', 'Settled Cash For Investment', 'Cash BUying Power', 'Total Account Value', 'Net Market Value', 'Net Market Value Long', 'Net Market Value Short')
-        # #create individual df for each account.
-        # results_df[i] = pd.DataFrame(results, columns=(columns))
+# %% Example Cell 
+# # %% Oauth
+# #Oauth set the session and base url to use in the rest of the calls.
+# e_c = Etrade_Connect()
+# ouath_method=e_c.oauth()
+# session = ouath_method[0]
+# base_url = ouath_method[1]
 
-        # #concat the individual df into one master df.
-        # overall_df = pd.concat(results_df.values(), ignore_index=True)
-        # print('DataFrame Below:')
-        # return overall_df
-                        
+# # %% Account funtions
+# #set account class with session and base url
+# accounts = Accounts(session,base_url)
 
+# #pull account list to use for other functions
+# acct_df= accounts.account_list()
 
+# #seperate just the id keys
+# acct_id_keys = acct_df['accountIdKey']
 
-
-
-# %% Oauth
-ouath_method=oauth()
-session = ouath_method[0]
-base_url = ouath_method[1]
-
-# %% Pull Accounts
-accounts = Accounts(session,base_url)
-acct = accounts.account_list()
-acct_df = pd.DataFrame(acct)
-acct_id_keys = acct_df['accountIdKey']
-acct_id_keys
-accounts.portfolio_dataframe(acct_id_keys)
+# #sample of the portfolio,balance, and transaction function.
+# accounts.portfolio_dataframe(acct_id_keys)
 # accounts.balance(acct_df)
-# accounts.list_transactions(acct_df)
-
-# %%
-
-
-
-
-# %%
-
-
-# %%
+# accounts.list_transactions(acct_id_keys[0])
+# # %% Market Functions
+# #set the session and base for the market class
+# mkt = Market(session,base_url)
+# #fetch a df with stock info and transpose the results for easy reading.
+# mkt.quotes('HP').T

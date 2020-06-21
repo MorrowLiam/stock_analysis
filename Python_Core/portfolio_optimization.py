@@ -11,42 +11,69 @@ if __name__ == '__main__' and __package__ is None:
     sys.path.append(inputfilename2)
 
 # %% imports
+#import typical packages
 import numpy as np
 import pandas as pd
 from pandas_datareader import data as wb
 import matplotlib.pyplot as plt
 import seaborn as sns
+sns.set(style="darkgrid")
 from datetime import datetime
 from pandas import ExcelWriter
 from pandas import ExcelFile
 from scipy.optimize import minimize
-from stock_fetch import stock_utilities as sf
 import scipy.optimize as sco
 import cvxpy as cp
+
+#import personal packages
+from stock_utilities import stock_utilities as sf
+from etrade_wrapper import Etrade_Connect, Accounts, Market
+
+#import pypfopt package
 from pypfopt.efficient_frontier import EfficientFrontier
 from pypfopt.expected_returns import mean_historical_return
 from pypfopt.risk_models import CovarianceShrinkage
 from pypfopt import Plotting
 import pypfopt
-sns.set(style="darkgrid")
 
+# %% Oauth
+#Oauth set the session and base url to use in the rest of the calls.
+e_c = Etrade_Connect()
+ouath_method=e_c.oauth()
+session = ouath_method[0]
+base_url = ouath_method[1]
 
+# %% Account funtions
+#set account class with session and base url
+accounts = Accounts(session,base_url)
+#pull account list to use for other functions
+acct_df= accounts.account_list()
+#seperate just the id keys
+acct_id_keys = acct_df['accountIdKey']
+#sample of the portfolio,balance, and transaction function.
+acct_df = accounts.portfolio_dataframe(acct_id_keys,accounts)
 
+# %% 
+#search variable
+acct_to_search = '40751868'
+
+#pull specific data from the df to check against
+ticker_series = acct_df.loc[acct_df['Account ID'] == acct_to_search]['Position']
+port_pct = acct_df.loc[acct_df['Account ID'] == acct_to_search][['Position','Pct of Portfolio']]
+
+#convert the series to a str for the yahoo_stock_fetch
+seperator = ','
+tickers = seperator.join(ticker_series)
 
 # %% fetch stock data
 # tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
-tickers="AFDIX,FXAIX,JLGRX,MEIKX"
-start_date = datetime(2015,1,1)
+# tickers="AFDIX,FXAIX,JLGRX,MEIKX"
+start_date = datetime(2010,1,1)
 end_date = datetime(2020,6,1)
 stock_df = sf.yahoo_stock_fetch(tickers, start_date, end_date)
 
-# %% Excel Functions
-# sf.write_to_excel(stock_df)
-# new_df = sf.read_from_excel(r"C:\Users\Liam Morrow\Documents\Onedrive\Python scripts\_01 Liam Stock Analysis Project\stock_analysis\Python_Core\funds.xlsx")
 
-
-
-# %% fetch stock data
+# %% create df
 
 analysis_df = {}
 for t in stock_df.keys():
@@ -56,6 +83,7 @@ for t in stock_df.keys():
     analysis_df[t]['Total ROI %'] = ((stock_df[t]['Adj Close']-stock_df[t]['Adj Close'].iloc[0])/stock_df[t]['Adj Close'].iloc[0])*100
     analysis_df[t]['Log Returns'] = np.log(stock_df[t]['Adj Close']/stock_df[t]['Adj Close'].shift(1))
 
+# %% adj close df
 adj_close_df = pd.DataFrame()
 for t in stock_df.keys():
     adj_close_df[t] = analysis_df[t]['Adj Close']
@@ -67,8 +95,8 @@ adj_close_df
 class efficient_frontier_models:
 
     def __init__(self):
-        """__init_()
-           """
+        """__init_()"""
+        pass
 
     def pyfolio_eff_frontier(self, adj_close_df,cov_type = "ledoit_wolf",returns = False,risk_free_rate=0.02):
         """ Use pyfolio to generate a efficient frontier. Comes with less control over the plot. Returns values to use for analysis.
@@ -206,7 +234,7 @@ class efficient_frontier_models:
 
         return weights, plot_results_df, portf_results_df, tickers, cov_mat, max_sharpe_portf, min_vol_portf,avg_returns
 
-    def scipy_eff_frontier(self, adj_close_df, n_portfolios = 1000, trading_days = 252, seed = 1, n_points_on_curve = 100,risk_free_rate=0.02):
+    def scipy_eff_frontier(self, adj_close_df, n_portfolios = 1000, trading_days = 252, seed = 1, n_points_on_curve = 100,risk_free_rate=0.02,alloc_threshold=.005):
         """ Use scipy approach to generate a efficient frontier. Returns values to use for analysis. 
         """
 
@@ -222,7 +250,7 @@ class efficient_frontier_models:
         def reduce_stock_selections(tickers,weights):
             reduce_df = pd.DataFrame({'tickers':tickers,'weights':weights},columns=['tickers','weights'])
             #filter stocks/funds to remove any below .1% allocation
-            masked_df = reduce_df.mask(weights<=.005)
+            masked_df = reduce_df.mask(weights<=alloc_threshold)
             masked_df = masked_df.dropna()
             return masked_df
 
@@ -329,8 +357,10 @@ class efficient_frontier_models:
 
     #     return
 
+
 # %% Monte Carlo Run
-mc_ef = efficient_frontier_models.monte_carlo_eff_frontier(adj_close_df,n_portfolios = 3000,n_points_on_curve=100)
+efm = efficient_frontier_models()
+mc_ef = efm.monte_carlo_eff_frontier(adj_close_df,n_portfolios = 3000,n_points_on_curve=100)
 #weights of random portfolios
 mc_weights = mc_ef[0]
 #plot results for efficient frontier line
@@ -350,7 +380,12 @@ mc_avg_returns = mc_ef[7]
 
 
 # %% Scipy Run
-sc_ef = efficient_frontier_models.scipy_eff_frontier(adj_close_df)
+sc_ef = efm.scipy_eff_frontier(adj_close_df, alloc_threshold=0)
+print('\n')
+print('Current Allocation:')
+print(port_pct)
+
+
 #weights on the eff frontier
 sc_ef_weights = sc_ef[0][1]
 #returns, volatility, sharpe_ratio
