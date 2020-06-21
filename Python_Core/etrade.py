@@ -96,7 +96,7 @@ class Accounts:
             else:
                 print("Error: AccountList API service error")
 
-    def portfolio(self,acct_id_key):
+    def fetch_portfolio(self,acct_id_key):
         """
         Call portfolio API to retrieve a list of positions held in the specified account
 
@@ -118,45 +118,6 @@ class Accounts:
             portfolio = data["PortfolioResponse"]["AccountPortfolio"]
             return portfolio
 
-
-        #     if data is not None and "PortfolioResponse" in data and "AccountPortfolio" in data["PortfolioResponse"]:
-        #         # Display balance information
-        #         for acctPortfolio in data["PortfolioResponse"]["AccountPortfolio"]:
-        #             if acctPortfolio is not None and "Position" in acctPortfolio:
-        #                 for position in acctPortfolio["Position"]:
-        #                     print_str = ""
-        #                     if position is not None and "symbolDescription" in position:
-        #                         print_str = print_str + "Symbol: " + str(position["symbolDescription"])
-        #                     if position is not None and "quantity" in position:
-        #                         print_str = print_str + " | " + "Quantity #: " + str(position["quantity"])
-        #                     if position is not None and "Quick" in position and "lastTrade" in position["Quick"]:
-        #                         print_str = print_str + " | " + "Last Price: " \
-        #                                     + str('${:,.2f}'.format(position["Quick"]["lastTrade"]))
-        #                     if position is not None and "pricePaid" in position:
-        #                         print_str = print_str + " | " + "Price Paid: " \
-        #                                     + str('${:,.2f}'.format(position["pricePaid"]))
-        #                     if position is not None and "totalGain" in position:
-        #                         print_str = print_str + " | " + "Total Gain: " \
-        #                                     + str('${:,.2f}'.format(position["totalGain"]))
-        #                     if position is not None and "marketValue" in position:
-        #                         print_str = print_str + " | " + "Value: " \
-        #                                     + str('${:,.2f}'.format(position["marketValue"]))
-        #                     print(print_str)
-        #             else:
-        #                 print("None")
-        #     else:
-        #         # Handle errors
-        #         logger.debug("Response Body: %s", response.text)
-        #         if response is not None and "headers" in response and "Content-Type" in response.headers \
-        #                 and response.headers['Content-Type'] == 'application/json' \
-        #                 and "Error" in response.json() and "message" in response.json()["Error"] \
-        #                 and response.json()["Error"]["message"] is not None:
-        #             print("Error: " + response.json()["Error"]["message"])
-        #         else:
-        #             print("Error: Portfolio API service error")
-        # elif response is not None and response.status_code == 204:
-        #     print("None")
-
         else:
             # Handle errors
             logger.debug("Response Body: %s", response.text)
@@ -167,6 +128,228 @@ class Accounts:
                 print("Error: " + response.json()["Error"]["message"])
             else:
                 print("Error: Portfolio API service error")
+
+    def portfolio_dataframe(self,acct_id_keys):
+        """Function used to parse data from API into a Pandas Dataframe format. 
+
+        Args:
+            acct_id_keys (str):Takes a list of account id from the account_list function to pull the positions.  
+
+        Returns:
+            [Dataframe]: Returns a filled dataframe with stock positions sorted by account. Postions have a number of data items (price paid, qty, etc.)
+        """
+        #Check for valid accounts. Append valid accounts to a list, disregard none valid accounts.
+        valid_accounts = []
+        for i in range(0,len(acct_id_keys)):
+            try:
+                selection = accounts.fetch_portfolio(acct_id_keys[i])[0]
+                valid_accounts.append(selection)
+                print('Valid Account')
+            except TypeError:
+                pass 
+
+        #setup dictionary to incorporate data from accounts. Dictionary is needed to cycle through the accounts and positions. Each account is a seperate list inside of the dictionary.
+        acc_df = {}
+        #for loop to go through each account
+        for i in range(0,len(valid_accounts)):
+            #These are the datapoints we are collecting. Setup lists to hold the data. Range needs to change if more datapoints are added.
+            account_id, position, positionId, adjPrevClose, pricePaid, costPerShare, totalCost, totalGain, totalGainPct, marketValue, quantity, positionType, daysGain, daysGainPct, pctOfPortfolio = ([] for i in range(15))
+
+            #for loop to god through each position. 
+            for pos in range(0,len(valid_accounts[i]['Position'])):
+                account_id.append(valid_accounts[i]['accountId'])
+                position.append(valid_accounts[i]['Position'][pos]['symbolDescription'])
+                positionId.append(valid_accounts[i]['Position'][pos]['positionId'])
+                adjPrevClose.append(valid_accounts[i]['Position'][pos]['adjPrevClose'])
+                pricePaid.append(valid_accounts[i]['Position'][pos]['pricePaid'])
+                costPerShare.append(valid_accounts[i]['Position'][pos]['costPerShare'])
+                totalCost.append(valid_accounts[i]['Position'][pos]['totalCost'])
+                totalGain.append(valid_accounts[i]['Position'][pos]['totalGain'])
+                totalGainPct.append(valid_accounts[i]['Position'][pos]['totalGainPct'])
+                marketValue.append(valid_accounts[i]['Position'][pos]['marketValue'])
+                quantity.append(valid_accounts[i]['Position'][pos]['quantity'])
+                positionType.append(valid_accounts[i]['Position'][pos]['positionType'])
+                daysGain.append(valid_accounts[i]['Position'][pos]['daysGain'])
+                daysGainPct.append(valid_accounts[i]['Position'][pos]['daysGainPct'])
+                pctOfPortfolio.append(valid_accounts[i]['Position'][pos]['pctOfPortfolio'])
+                positionType.append(valid_accounts[i]['Position'][pos]['positionType'])
+
+            #Zip the data into a tuple to create the dataframe. The data and column variables are to make the script more readable.
+            data=[]
+            data = zip(account_id,position,positionId, adjPrevClose, pricePaid, costPerShare, totalCost, totalGain, totalGainPct, marketValue, quantity, positionType, daysGain, daysGainPct, pctOfPortfolio)
+            columns = ('Account ID', 'Position', 'Position ID', 'ADJ Previous Close', 'Price Paid', 'Cost Per Share', 'Total Cost', 'Total Gain', 'Total Gain Pct', 'Market Value', 'Quantity', 'Position Type', 'Days Gain', 'Days Gain Pct', 'Pct of Portfolio')
+            #create individual df for each account.
+            acc_df[i] = pd.DataFrame(data, columns=(columns))
+
+        #concat the individual df into one master df.
+        overall_df = pd.concat(acc_df.values(), ignore_index=True)
+        print('DataFrame Below:')
+        return overall_df
+
+    def balance(self,acct_df):
+            """
+            Calls account balance API to retrieve the current balance and related details for a specified account
+
+            :param self: Pass in parameters authenticated session and information on selected account
+            """
+
+            results_df = {}
+            #for loop to go through each account
+            data=[]
+            accountId , accountType, accountDescription, cashAvailableForInvestment, cashAvailableForWithdrawal, totalAvailableForWithdrawal, settledCashForInvestment, cashBuyingPower, totalAccountValue, netMv, netMvLong, netMvShort = ([] for i in range(12))
+            for i in range(0,len(acct_df['accountIdKey'])):
+                # URL for the API endpoint
+                url = self.base_url + "/v1/accounts/" + acct_df['accountIdKey'][i] + "/balance.json"
+
+                # Add parameters and header information
+                params = {"instType": acct_df['institutionType'][i], "realTimeNAV": "true"}
+                headers = {"consumerkey": config["DEFAULT"]["CONSUMER_KEY"]}
+
+                # Make API call for GET request
+                response = self.session.get(url, header_auth=True, params=params, headers=headers)
+                logger.debug("Request url: %s", url)
+                logger.debug("Request Header: %s", response.request.headers)
+                
+                # Handle and parse response
+                if response is not None and response.status_code == 200:
+                    parsed = json.loads(response.text)
+                    logger.debug("Response Body: %s", json.dumps(parsed, indent=4, sort_keys=True))
+                    data = response.json()
+                   
+                    accountId.append(data['BalanceResponse']['accountId'])
+                    accountType.append(data['BalanceResponse']['accountType'])
+                    accountDescription.append(data['BalanceResponse']['accountDescription'])
+                    cashAvailableForInvestment.append(data['BalanceResponse']['accountType'])
+                    cashAvailableForWithdrawal.append(data['BalanceResponse']['Computed']['cashAvailableForWithdrawal'])
+                    totalAvailableForWithdrawal.append(data['BalanceResponse']['Computed']['totalAvailableForWithdrawal'])
+                    settledCashForInvestment.append(data['BalanceResponse']['Computed']['settledCashForInvestment'])
+                    cashBuyingPower.append(data['BalanceResponse']['Computed']['cashBuyingPower'])
+                    totalAccountValue.append(data['BalanceResponse']['Computed']['RealTimeValues']['totalAccountValue'])
+                    netMv.append(data['BalanceResponse']['Computed']['RealTimeValues']['netMv'])
+                    netMvLong.append(data['BalanceResponse']['Computed']['RealTimeValues']['netMvLong'])
+                    netMvShort.append(data['BalanceResponse']['Computed']['RealTimeValues']['netMvShort'])
+
+                else:
+                    # Handle errors
+                    logger.debug("Response Body: %s", response.text)
+                    if response is not None and response.headers['Content-Type'] == 'application/json' \
+                            and "Error" in response.json() and "message" in response.json()["Error"] \
+                            and response.json()["Error"]["message"] is not None:
+                        print("Error: " + response.json()["Error"]["message"])
+                    else:
+                        print("Error: Balance API service error")
+
+                
+
+            else:
+                # Handle errors
+                logger.debug("Response Body: %s", response.text)
+                if response is not None and response.headers['Content-Type'] == 'application/json' \
+                        and "Error" in response.json() and "message" in response.json()["Error"] \
+                        and response.json()["Error"]["message"] is not None:
+                    print("Error: " + response.json()["Error"]["message"])
+                else:
+                    print("Error: Balance API service error")
+
+            results=[]
+            columns=[]
+            results = zip(accountId , accountType, accountDescription, cashAvailableForInvestment, cashAvailableForWithdrawal, totalAvailableForWithdrawal, settledCashForInvestment, cashBuyingPower, totalAccountValue, netMv, netMvLong, netMvShort)
+            columns = ('Account ID' , 'Account Type', 'Account Description', 'Cash Availble For Investment', 'Cash Available For Withdraw', 'Total Available For Withdraw', 'Settled Cash For Investment', 'Cash BUying Power', 'Total Account Value', 'Net Market Value', 'Net Market Value Long', 'Net Market Value Short')
+            #create individual df for each account.
+            results_df[i] = pd.DataFrame(results, columns=(columns))
+
+            #concat the individual df into one master df.
+            overall_df = pd.concat(results_df.values(), ignore_index=True)
+            print('DataFrame Below:')
+            return overall_df
+                        
+    def list_transactions(self,acct_df):
+        """
+        Calls account balance API to retrieve the current balance and related details for a specified account
+
+        :param self: Pass in parameters authenticated session and information on selected account
+        """
+        valid_accounts = []
+        for i in range(0,len(acct_id_keys)):
+            try:
+                selection = accounts.fetch_portfolio(acct_id_keys[i])[0]
+                valid_accounts.append(selection)
+                print('Valid Account')
+            except TypeError:
+                pass 
+
+        results_df = {}
+        #for loop to go through each account
+        data=[]
+        # accountId , accountType, accountDescription, cashAvailableForInvestment, cashAvailableForWithdrawal, totalAvailableForWithdrawal, settledCashForInvestment, cashBuyingPower, totalAccountValue, netMv, netMvLong, netMvShort = ([] for i in range(12))
+        print(valid_accounts)
+        for i in range(0,len(valid_accounts)):
+            # URL for the API endpoint
+            url = self.base_url + "/v1/accounts/" + str(valid_accounts[i]) + "/transactions?count=3.json"
+
+            # Add parameters and header information
+            headers = {"consumerkey": config["DEFAULT"]["CONSUMER_KEY"]}
+
+            # Make API call for GET request
+            response = self.session.get(url, header_auth=True,headers=headers)
+            logger.debug("Request url: %s", url)
+            logger.debug("Request Header: %s", response.request.headers)
+            
+            # Handle and parse response
+            if response is not None and response.status_code == 200:
+                parsed = json.loads(response.text)
+                logger.debug("Response Body: %s", json.dumps(parsed, indent=4, sort_keys=True))
+                data = response.json()
+                print(data)
+        #         accountId.append(data['BalanceResponse']['accountId'])
+        #         accountType.append(data['BalanceResponse']['accountType'])
+        #         accountDescription.append(data['BalanceResponse']['accountDescription'])
+        #         cashAvailableForInvestment.append(data['BalanceResponse']['accountType'])
+        #         cashAvailableForWithdrawal.append(data['BalanceResponse']['Computed']['cashAvailableForWithdrawal'])
+        #         totalAvailableForWithdrawal.append(data['BalanceResponse']['Computed']['totalAvailableForWithdrawal'])
+        #         settledCashForInvestment.append(data['BalanceResponse']['Computed']['settledCashForInvestment'])
+        #         cashBuyingPower.append(data['BalanceResponse']['Computed']['cashBuyingPower'])
+        #         totalAccountValue.append(data['BalanceResponse']['Computed']['RealTimeValues']['totalAccountValue'])
+        #         netMv.append(data['BalanceResponse']['Computed']['RealTimeValues']['netMv'])
+        #         netMvLong.append(data['BalanceResponse']['Computed']['RealTimeValues']['netMvLong'])
+        #         netMvShort.append(data['BalanceResponse']['Computed']['RealTimeValues']['netMvShort'])
+
+            # else:
+            #     # Handle errors
+            #     logger.debug("Response Body: %s", response.text)
+            #     if response is not None and response.headers['Content-Type'] == 'application/json' \
+            #             and "Error" in response.json() and "message" in response.json()["Error"] \
+            #             and response.json()["Error"]["message"] is not None:
+            #         print("Error: " + response.json()["Error"]["message"])
+            #     else:
+            #         print("Error: Balance API service error")
+
+            
+
+        else:
+            # Handle errors
+            logger.debug("Response Body: %s", response.text)
+            if response is not None and response.headers['Content-Type'] == 'application/json' \
+                    and "Error" in response.json() and "message" in response.json()["Error"] \
+                    and response.json()["Error"]["message"] is not None:
+                print("Error: " + response.json()["Error"]["message"])
+            else:
+                print("Error: Balance API service error")
+
+
+        # results=[]
+        # columns=[]
+        # results = zip(accountId , accountType, accountDescription, cashAvailableForInvestment, cashAvailableForWithdrawal, totalAvailableForWithdrawal, settledCashForInvestment, cashBuyingPower, totalAccountValue, netMv, netMvLong, netMvShort)
+        # columns = ('Account ID' , 'Account Type', 'Account Description', 'Cash Availble For Investment', 'Cash Available For Withdraw', 'Total Available For Withdraw', 'Settled Cash For Investment', 'Cash BUying Power', 'Total Account Value', 'Net Market Value', 'Net Market Value Long', 'Net Market Value Short')
+        # #create individual df for each account.
+        # results_df[i] = pd.DataFrame(results, columns=(columns))
+
+        # #concat the individual df into one master df.
+        # overall_df = pd.concat(results_df.values(), ignore_index=True)
+        # print('DataFrame Below:')
+        # return overall_df
+                        
+
 
 
 
@@ -182,40 +365,16 @@ acct = accounts.account_list()
 acct_df = pd.DataFrame(acct)
 acct_id_keys = acct_df['accountIdKey']
 acct_id_keys
+accounts.portfolio_dataframe(acct_id_keys)
+# accounts.balance(acct_df)
+# accounts.list_transactions(acct_df)
 
-
-# %% check for valid accounts
-#check for valid accounts
-valid_accounts = []
-for i in range(0,len(acct_id_keys)):
-    try:
-        selection = accounts.portfolio(acct_id_keys[i])[0]
-        valid_accounts.append(selection)
-        print("Valid")
-        print(selection)
-    except TypeError:
-        pass 
-
-
-# %% 
+# %%
 
 
 
 
-# %% 
-
-valid_accounts[0]
-
-# %% Pull Accounts
-#positions
-accounts.portfolio(acct_id_keys[0])[0]['Position'][0]['positionId']
-
-
-# %% Pull Accounts
-pd.DataFrame(valid_accounts)
-
-acct_id_keys
-acct_df
+# %%
 
 
 # %%
