@@ -47,13 +47,13 @@ Stock Analysis to evaluate my personal accounts.
 
 
 TODO:
-add exp covariance
-add cvxpy efficient scipy_eff_frontier
-complete decompose to prediction for stock_screener
-finalize stock_screener to incorporate other data
-Incorporate CAPM
-Develop comparison chart of allocations v. preferred allocation.
-create another file to run the analysis separately
+- add exp covariance
+- add cvxpy efficient scipy_eff_frontier
+- complete decompose to prediction for stock_screener
+- finalize stock_screener to incorporate other data
+- Incorporate CAPM
+- Develop comparison chart of allocations v. preferred allocation.
+- create another file to run the analysis separately
 
 
 ## License
