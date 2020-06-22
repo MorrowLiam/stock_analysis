@@ -5,45 +5,45 @@ Stock Analysis to evaluate my personal accounts.
 
 ## Index
 1. stock_utilities
-  - Stock Fetch from yahoo
-  - Read From Excel
-  - Write to Excel
-  - Generate Typ. DataFrame for stock info
+    - Stock Fetch from yahoo
+    - Read From Excel
+    - Write to Excel
+    - Generate Typ. DataFrame for stock info
 
 2. etrade_wrapper
-  - Etrade_Connect
-  - Accounts
-    - account_list
-    - fetch_portfolio
-    - portfolio_dataframe
-    - balance
-    - list_transactions
-  - Market
-    - quotes
-  -examples to use the wrapper
+    - Etrade_Connect
+    - Accounts
+      - account_list
+      - fetch_portfolio
+      - portfolio_dataframe
+      - balance
+      - list_transactions
+    - Market
+      - quotes
+    -examples to use the wrapper
 
 3. portfolio_optimization
-  - efficient_frontier_models
-    - pyfolio_eff_frontier
-    - monte_carlo_eff_frontier
-    - scipy_eff_frontier
-  - plot all of the efficient frontier models
+    - efficient_frontier_models
+      - pyfolio_eff_frontier
+      - monte_carlo_eff_frontier
+      - scipy_eff_frontier
+    - plot all of the efficient frontier models
 
 4. risk_models
-  - cov_to_corr
-  - variation_over_time
-  - heatmap
-  - covariance_models
-    - sample_covariance
-    - shrunk_covariance
-    - format_and_annualize
-    - ledoit_wolf
-    - ledoit_wolf_single_factor
-    - ledoit_wolf_constant_correlation
-  - examples of plotting the covariance/correlation
+    - cov_to_corr
+    - variation_over_time
+    - heatmap
+    - covariance_models
+      - sample_covariance
+      - shrunk_covariance
+      - format_and_annualize
+      - ledoit_wolf
+      - ledoit_wolf_single_factor
+      - ledoit_wolf_constant_correlation
+    - examples of plotting the covariance/correlation
 
 5. stock_screener
-  - seasonal decompose plotting
+    - seasonal decompose plotting
 
 
 TODO:
