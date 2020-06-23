@@ -106,6 +106,10 @@ ENV/
 env.bak/
 venv.bak/
 
+#SP500 df
+stock_dfs/
+sp500tickers.pickle
+
 # Spyder project settings
 .spyderproject
 .spyproject

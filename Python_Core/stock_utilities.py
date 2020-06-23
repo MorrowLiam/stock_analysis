@@ -5,21 +5,26 @@ from datetime import datetime
 from pandas import ExcelWriter
 from pandas import ExcelFile
 import numpy as np
+import bs4 as bs
+import pickle
+import requests
+import os
+import time
 
-# %% Stock_utilities Class
-class stock_utilities:
-    def yahoo_stock_fetch(tickers,start_date,end_date):
-        """ function to pull multiple stocks into several dataframes from yahoo
+# %% Stock Utilities Helper Functions
+def yahoo_stock_fetch(tickers,start_date,end_date,input='list'):
+    """ Helper function to pull multiple stocks into several dataframes from yahoo
 
-        Args:
-            tickers ([str]): [stock or fund tickers]
-            start_date ([datetime]): [date time]
-            end_date ([datetime]): [date time]
-
-        Returns:
-            [DataFrame]: [Dataframe with date, open, close, high, low, adj close]
-        """
-        # TODO: should add in a check for unique, remove spaces, and check to see if these are needed
+    Args:
+        tickers ([str]): [stock or fund tickers]
+        start_date ([datetime]): [date time]
+        end_date ([datetime]): [date time]
+        input ([str]):describe type of data for tickers options are 'list' or 'pickle'
+    Returns:
+        [DataFrame]: [Dataframe with date, open, close, high, low, adj close]
+    """
+    # TODO: should add in a check for unique, remove spaces, and check to see if these are needed
+    if input=="list":
         tickers = tickers.split(',')
         #create a dictionary to sort the dataframes
         df = {}
@@ -27,65 +32,105 @@ class stock_utilities:
             df[tickers] = pd.DataFrame()
             df[tickers] = wb.DataReader(tickers, data_source='yahoo', start=(start_date), end=(end_date))
         return df
+    elif input=="pickle":
+        with open(tickers, "rb") as f:
+            tickers = pickle.load(f)
 
-    def write_to_excel(df,file_name="funds.xlsx"):
-        """Save dataframe(s) to excel
+        # print (tickers)
+        if not os.path.exists('stock_dfs'):
+            os.makedirs('stock_dfs')
 
-        Args:
-            df ([DataFarme(s)]): DataFrame or Dictionary with multiple dataframes to send to excel
-            file_name ([str], optional): File name to save excel as. Defaults to funds.xlsx.
-        """
-        excel_name = pd.ExcelWriter(file_name, engine = 'xlsxwriter')
-        print('Saving:')
-        for i in df.keys():
-            print (i)
-            df[i].to_excel(excel_name,str(i))
-        excel_name.save()
+        for ticker in tickers:
+            # just in case your connection breaks, we'd like to save our progress!
+            if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
+                ticker = ticker.replace('\n', '')
+                try:
+                    df = wb.DataReader(ticker, data_source='yahoo', start=(start_date), end=(end_date))
+                except:
+                    print (ticker + "was not able to be fetched")
+                    pass
+                df.reset_index(inplace=True)
+                df.set_index("Date", inplace=True)
+                df.to_csv('stock_dfs/{}.csv'.format(ticker))
+                time.sleep(0.5)#to throttle speed and avoid yahoo stoppping the data request
+            else:
+                print('Already have {}'.format(ticker))
 
-    def read_from_excel(file_path):
-        """Read excel sheet to a DataFrame.
-        !!Issues with large files!!
+def write_to_excel(df,file_name="funds.xlsx"):
+    """Save dataframe(s) to excel
 
-        Args:
-            file_path ([str]): Path with a filename to read from.
-            parse (bool, optional): Parse the DataFrame to use the dates as the index. Defaults to False.
+    Args:
+        df ([DataFarme(s)]): DataFrame or Dictionary with multiple dataframes to send to excel
+        file_name ([str], optional): File name to save excel as. Defaults to funds.xlsx.
+    """
+    excel_name = pd.ExcelWriter(file_name, engine = 'xlsxwriter')
+    print('Saving:')
+    for i in df.keys():
+        print (i)
+        df[i].to_excel(excel_name,str(i))
+    excel_name.save()
 
-        Returns:
-            [DataFrame]: Excel DataFrame
-        """
-        all_sheets_df = pd.read_excel(file_path, sheet_name=None)
-        return all_sheets_df
+def read_from_excel(file_path):
+    """Read excel sheet to a DataFrame.
+    !!Issues with large files!!
 
-    def typ_tech_analysis_df(stock_df, RS_n_days=14):
-        """TODO Add doc string
-        """
-        analysis_df = {}
-        for t in stock_df.keys():
-            analysis_df[t] = pd.DataFrame()
-            analysis_df[t]['Adj Close'] = (stock_df[t]['Adj Close'])
-            analysis_df[t]['Volume'] = (stock_df[t]['Volume'])
-            analysis_df[t]['Close Delta']  = (stock_df[t]['Adj Close'].diff(1))
-            analysis_df[t]['Simple Return %']  = (stock_df[t]['Adj Close'].pct_change(1))
-            analysis_df[t]['Total ROI %'] = ((stock_df[t]['Adj Close']-stock_df[t]['Adj Close'].iloc[0])/stock_df[t]['Adj Close'].iloc[0])*100
-            analysis_df[t]['Log Returns'] = np.log(stock_df[t]['Adj Close']/stock_df[t]['Adj Close'].shift(1))
+    Args:
+        file_path ([str]): Path with a filename to read from.
+        parse (bool, optional): Parse the DataFrame to use the dates as the index. Defaults to False.
 
-            #calculate RSI
-            gains = analysis_df[t]['Close Delta'].mask(analysis_df[t]['Close Delta']<0,0)
-            losses = analysis_df[t]['Close Delta'].mask(analysis_df[t]['Close Delta']>0,0)
-            analysis_df[t][str(RS_n_days) + ' RS Average Gains'] = gains.ewm(com = RS_n_days -1, min_periods=RS_n_days).mean()
-            analysis_df[t][str(RS_n_days) + ' RS Average Losses'] = losses.ewm(com = RS_n_days -1, min_periods=RS_n_days).mean()
-            RS=abs(analysis_df[t][str(RS_n_days) + ' RS Average Gains']/analysis_df[t][str(RS_n_days) + ' RS Average Losses'])
-            analysis_df[t]['RSI'] = 100 - 100/ (1+RS)
+    Returns:
+        [DataFrame]: Excel DataFrame
+    """
+    all_sheets_df = pd.read_excel(file_path, sheet_name=None)
+    return all_sheets_df
 
-            #Calculate bolinger bands and rolling mean
-            analysis_df[t]['Close: 30 Day Mean'] = analysis_df[t]['Adj Close'].rolling(window=30).mean()
-            analysis_df[t]['Close: 50 Day Mean'] = analysis_df[t]['Adj Close'].rolling(window=50).mean()
-            analysis_df[t]['Close: 150 Day Mean'] = analysis_df[t]['Adj Close'].rolling(window=150).mean()
-            analysis_df[t]['Close: 200 Day Mean'] = analysis_df[t]['Adj Close'].rolling(window=200).mean()
-            analysis_df[t]['30 Day Upper Band'] = analysis_df[t]['Close: 30 Day Mean'] + 2*analysis_df[t]['Adj Close'].rolling(window=20).std()
-            analysis_df[t]['30 Day Lower Band'] = analysis_df[t]['Close: 30 Day Mean'] - 2*analysis_df[t]['Adj Close'].rolling(window=20).std()
+def typ_tech_analysis_df(stock_df, RS_n_days=14):
+    """TODO Add doc string
+    """
+    analysis_df = {}
+    for t in stock_df.keys():
+        analysis_df[t] = pd.DataFrame()
+        analysis_df[t]['Adj Close'] = (stock_df[t]['Adj Close'])
+        analysis_df[t]['Volume'] = (stock_df[t]['Volume'])
+        analysis_df[t]['Close Delta']  = (stock_df[t]['Adj Close'].diff(1))
+        analysis_df[t]['Simple Return %']  = (stock_df[t]['Adj Close'].pct_change(1))
+        analysis_df[t]['Total ROI %'] = ((stock_df[t]['Adj Close']-stock_df[t]['Adj Close'].iloc[0])/stock_df[t]['Adj Close'].iloc[0])*100
+        analysis_df[t]['Log Returns'] = np.log(stock_df[t]['Adj Close']/stock_df[t]['Adj Close'].shift(1))
 
-            #calc 52 week low/high
-            analysis_df[t]['52 Wk High'] = analysis_df[t]['Adj Close'].rolling(min_periods=1, window=252, center=False).max()
-            analysis_df[t]['52 Wk Low'] = analysis_df[t]['Adj Close'].rolling(min_periods=1, window=252, center=False).min()
-        return analysis_df
+        #calculate RSI
+        gains = analysis_df[t]['Close Delta'].mask(analysis_df[t]['Close Delta']<0,0)
+        losses = analysis_df[t]['Close Delta'].mask(analysis_df[t]['Close Delta']>0,0)
+        analysis_df[t][str(RS_n_days) + ' RS Average Gains'] = gains.ewm(com = RS_n_days -1, min_periods=RS_n_days).mean()
+        analysis_df[t][str(RS_n_days) + ' RS Average Losses'] = losses.ewm(com = RS_n_days -1, min_periods=RS_n_days).mean()
+        RS=abs(analysis_df[t][str(RS_n_days) + ' RS Average Gains']/analysis_df[t][str(RS_n_days) + ' RS Average Losses'])
+        analysis_df[t]['RSI'] = 100 - 100/ (1+RS)
+
+        #Calculate bolinger bands and rolling mean
+        analysis_df[t]['Close: 30 Day Mean'] = analysis_df[t]['Adj Close'].rolling(window=30).mean()
+        analysis_df[t]['Close: 50 Day Mean'] = analysis_df[t]['Adj Close'].rolling(window=50).mean()
+        analysis_df[t]['Close: 150 Day Mean'] = analysis_df[t]['Adj Close'].rolling(window=150).mean()
+        analysis_df[t]['Close: 200 Day Mean'] = analysis_df[t]['Adj Close'].rolling(window=200).mean()
+        analysis_df[t]['30 Day Upper Band'] = analysis_df[t]['Close: 30 Day Mean'] + 2*analysis_df[t]['Adj Close'].rolling(window=20).std()
+        analysis_df[t]['30 Day Lower Band'] = analysis_df[t]['Close: 30 Day Mean'] - 2*analysis_df[t]['Adj Close'].rolling(window=20).std()
+
+        #calc 52 week low/high
+        analysis_df[t]['52 Wk High'] = analysis_df[t]['Adj Close'].rolling(min_periods=1, window=252, center=False).max()
+        analysis_df[t]['52 Wk Low'] = analysis_df[t]['Adj Close'].rolling(min_periods=1, window=252, center=False).min()
+    return analysis_df
+
+def scrape_sp500_tickers():
+    """TODO Add Doc Str"""
+    #set get file to look at wikipedia's list of sp500 companies
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    #cycle through wiki table to find get all of the stock tickers
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+    #save to pickle to speed up process
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+    print ('Scraping Complete')
+    return tickers
