@@ -190,23 +190,15 @@ def scrape_sp500_tickers():
     print ('Scraping Complete')
     return tickers
 
-def iex_stock_fetch(tickers,start_date,end_date,input='list'):
-    """ALl of this data can be taken from the etrade wrapper"""
-    if input=="list":
-        tickers = tickers.split(',')
+def iex_stock_fetch(tickers,start_date,end_date):
+    """All of this data can be taken from the etrade wrapper.Save in case it is useful later."""
+    tickers = tickers.split(',')
 
-        results = {}
-        for count,ticker in enumerate(tickers):
-            stats_url = base_url+f'stock/{ticker}/stats/stats?token={secret_key}'
-            stats_response = requests.get(stats_url)
-            results[ticker] = (stats_response.json())
+    results = {}
+    for count,ticker in enumerate(tickers):
+        stats_url = base_url+f'stock/{ticker}/stats/stats?token={secret_key}'
+        stats_response = requests.get(stats_url)
+        results[ticker] = (stats_response.json())
 
-        df= pd.DataFrame(results)
-        return df
-
-
-
-tickers='MMM,AAPL'
-start_date = pd.to_datetime('1/1/2019', utc=True)
-end_date = pd.to_datetime('6/16/2020', utc=True)
-iex_stock_fetch(tickers,start_date,end_date)
+    df= pd.DataFrame(results)
+    return df

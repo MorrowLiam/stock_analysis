@@ -109,6 +109,7 @@ venv.bak/
 #SP500 df
 stock_dfs/
 sp500tickers.pickle
+sp500_joined_closes.csv
 
 # Spyder project settings
 .spyderproject
