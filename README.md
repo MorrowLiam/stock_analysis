@@ -9,6 +9,7 @@ Stock Analysis to evaluate my personal accounts.
     - Read From Excel
     - Write to Excel
     - Generate Typ. DataFrame for stock info
+    - Scrape SP500 tickers from wikipedia
 
 2. etrade_wrapper
     - Etrade_Connect
