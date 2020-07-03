@@ -10,7 +10,7 @@ from rauth import OAuth1Service
 from logging.handlers import RotatingFileHandler
 import pandas as pd
 config = configparser.ConfigParser()
-config_path=r"C:\Users\Liam Morrow\Documents\Onedrive\Python scripts\02 Snippets\config.ini"
+config_path=r"config.ini"
 config.read(config_path)
 CONSUMER_KEY = config.get('DEFAULT', 'CONSUMER_KEY')
 CONSUMER_SECRET = config.get('DEFAULT', 'CONSUMER_SECRET')

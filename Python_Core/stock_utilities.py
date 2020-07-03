@@ -14,7 +14,7 @@ import configparser
 import json
 
 config = configparser.ConfigParser()
-config_path=r"C:\Users\l.morrow\OneDrive\Python scripts\02 Snippets\config.ini"
+config_path=r"config.ini"
 config.read(config_path)
 secret_key = config.get('DEFAULT', 'IEX_SECRET_KEY')
 base_url = config.get('DEFAULT', 'IEX_BASE_URL')
