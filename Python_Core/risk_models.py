@@ -21,7 +21,7 @@ from datetime import datetime
 from pandas import ExcelWriter
 from pandas import ExcelFile
 from scipy.optimize import minimize
-from stock_fetch import stock_utilities as sf
+import stock_utilities as sf
 import scipy.optimize as sco
 sns.set(style="darkgrid")
 
@@ -410,7 +410,8 @@ class covariance_models:
 
 #%% plot covariance over time
 #select covariance matrix, and periods to show
-matrix = variation_over_time(prices = adj_close_df,frequency=252,periods=2,covariance='ledoit_wolf',correlation=True ,returns_data=False)
+matrix = variation_over_time(prices = adj_close_df,frequency=252,periods=9,covariance='ledoit_wolf',correlation=True ,returns_data=False)
+times = matrix[1]
 corr = pd.melt(matrix[0][1].reset_index(), id_vars='index') # Unpivot the dataframe, so we can get pair of arrays for x and y
 corr.columns = ['x', 'y', 'value']
 normalized = (corr['value']-min(corr['value']))/(max(corr['value'])-min(corr['value']))

@@ -26,14 +26,14 @@ import scipy.optimize as sco
 import cvxpy as cp
 
 #import personal packages
-from stock_utilities import stock_utilities as sf
+import stock_utilities as sf
 from etrade_wrapper import Etrade_Connect, Accounts, Market
 
 #import pypfopt package
 from pypfopt.efficient_frontier import EfficientFrontier
 from pypfopt.expected_returns import mean_historical_return
 from pypfopt.risk_models import CovarianceShrinkage
-from pypfopt import Plotting
+from pypfopt import plotting
 import pypfopt
 
 # %% Oauth
@@ -67,7 +67,7 @@ tickers = seperator.join(ticker_series)
 
 # %% fetch stock data
 # tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
-# tickers="AFDIX,FXAIX,JLGRX,MEIKX"
+tickers="AFDIX,FXAIX,JLGRX,MEIKX"
 start_date = datetime(2010,1,1)
 end_date = datetime(2020,6,1)
 stock_df = sf.yahoo_stock_fetch(tickers, start_date, end_date)
@@ -96,7 +96,6 @@ class efficient_frontier_models:
 
     def __init__(self):
         """__init_()"""
-        pass
 
     def pyfolio_eff_frontier(self, adj_close_df,cov_type = "ledoit_wolf",returns = False,risk_free_rate=0.02):
         """ Use pyfolio to generate a efficient frontier. Comes with less control over the plot. Returns values to use for analysis.
@@ -237,7 +236,7 @@ class efficient_frontier_models:
     def scipy_eff_frontier(self, adj_close_df, n_portfolios = 1000, trading_days = 252, seed = 1, n_points_on_curve = 100,risk_free_rate=0.02,alloc_threshold=.005):
         """ Use scipy approach to generate a efficient frontier. Returns values to use for analysis. 
         """
-
+        
         returns_df = adj_close_df.pct_change().dropna()
         avg_returns = returns_df.mean() * trading_days
         cov_mat = returns_df.cov() * trading_days
@@ -383,7 +382,10 @@ mc_avg_returns = mc_ef[7]
 sc_ef = efm.scipy_eff_frontier(adj_close_df, alloc_threshold=0)
 print('\n')
 print('Current Allocation:')
-print(port_pct)
+try:
+    print(port_pct)
+except:
+    print("No Current Account Data")
 
 
 #weights on the eff frontier
@@ -451,9 +453,9 @@ plt.show()
 
 # %% Pyfolio Plot
 # TODO work out a better way to graph this.
-pyfo_info = efficient_frontier_models.pyfolio_eff_frontier(adj_close_df,cov_type="ledoit_wolf",returns = False,risk_free_rate=0.02)
+pyfo_info = efm.pyfolio_eff_frontier(adj_close_df,cov_type="ledoit_wolf",returns = False,risk_free_rate=0.02)
 plt.figure(figsize=(10,10))
-Plotting.plot_efficient_frontier(pypfopt.cla.CLA(pyfo_info[1],pyfo_info[2],weight_bounds=(0, 1)), points=100, show_assets=True)
+plotting.plot_efficient_frontier(pypfopt.cla.CLA(pyfo_info[1],pyfo_info[2],weight_bounds=(0, 1)), points=100, show_assets=True)
 
 plt.tight_layout()
 plt.show()

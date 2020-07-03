@@ -110,6 +110,7 @@ venv.bak/
 stock_dfs/
 sp500tickers.pickle
 sp500_joined_closes.csv
+config.ini
 
 # Spyder project settings
 .spyderproject

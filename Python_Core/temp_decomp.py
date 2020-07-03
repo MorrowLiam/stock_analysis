@@ -15,7 +15,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
-from stock_utilities import stock_utilities as su
+import stock_utilities as su
 sns.set(style="darkgrid")
 from statsmodels.tsa.seasonal import seasonal_decompose
 from fbprophet import Prophet
@@ -26,7 +26,7 @@ start_date = pd.to_datetime('1/1/2010', utc=True)
 end_date = pd.to_datetime('6/16/2020', utc=True)
 #fetch yahoo stock information and save to a variable.
 stock_df = su.yahoo_stock_fetch(tickers, start_date, end_date)
-#Calculate a number of typical techincal indicators
+#Calculate a number of typical technical indicators
 analysis_df = su.typ_tech_analysis_df(stock_df)
 
 # %%
@@ -59,3 +59,4 @@ plt.show()
 
 # %%
 model_prophet.plot_components(df_pred)
+
