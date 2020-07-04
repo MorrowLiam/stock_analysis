@@ -30,21 +30,7 @@ Stock Analysis to evaluate my personal accounts.
       - scipy_eff_frontier
     - plot all of the efficient frontier models
 
-4. risk_models
-    - cov_to_corr
-    - variation_over_time
-    - heatmap
-    - covariance_models
-      - sample_covariance
-      - shrunk_covariance
-      - format_and_annualize
-      - ledoit_wolf
-      - ledoit_wolf_single_factor
-      - ledoit_wolf_constant_correlation
-    - examples of plotting the covariance/correlation
 
-5. stock_screener
-    - seasonal decompose plotting
 
 
 TODO:
