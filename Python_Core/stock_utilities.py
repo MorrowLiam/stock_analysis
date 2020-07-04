@@ -1,3 +1,6 @@
+# %% [markdown]
+# Utility Functions for analysis
+
 # %% Import
 import pandas as pd
 import pandas_datareader as wb
@@ -10,16 +13,11 @@ import pickle
 import requests
 import os
 import time
-import configparser
-import json
 
-config = configparser.ConfigParser()
-config_path=r"config.ini"
-config.read(config_path)
-secret_key = config.get('DEFAULT', 'IEX_SECRET_KEY')
-base_url = config.get('DEFAULT', 'IEX_BASE_URL')
 
 # %% Stock Utilities Helper Functions
+
+#fetch and cull functions
 def yahoo_stock_fetch(tickers,start_date,end_date,input='list'):
     """ Helper function to pull multiple stocks into several dataframes from yahoo.
     Args:
@@ -139,8 +137,76 @@ def read_sp500_csv(tickers, dfs_file_paths='stock_dfs/', ticker_input='pickle'):
     except Exception as e:
         print(e)
 
+def scrape_sp500_tickers():
+    """Scrape the wikipedia page for the latest list of sp500 companies
+
+    Returns:
+        [pickle]: [list of sp500 companies]
+    """
+    #set get file to look at wikipedia's list of sp500 companies
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    #cycle through wiki table to find get all of the stock tickers
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+    #save to pickle to speed up process
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+    print ('Scraping Complete')
+    return tickers
+
+def iex_stock_fetch(tickers,start_date,end_date):
+    """All of this data can be taken from the etrade wrapper.Save in case it is useful later."""
+    import configparser
+    import json
+    config = configparser.ConfigParser()
+    config_path=r"config.ini"
+    config.read(config_path)
+    secret_key = config.get('DEFAULT', 'IEX_SECRET_KEY')
+    base_url = config.get('DEFAULT', 'IEX_BASE_URL')
+    
+    tickers = tickers.split(',')
+
+    results = {}
+    for count,ticker in enumerate(tickers):
+        stats_url = base_url+f'stock/{ticker}/stats/stats?token={secret_key}'
+        stats_response = requests.get(stats_url)
+        results[ticker] = (stats_response.json())
+
+    df= pd.DataFrame(results)
+    return df
+
+# Operations on analysis
+def cov_to_corr(cov_matrix):
+    """
+    Convert a covariance matrix to a correlation matrix.
+    :param cov_matrix: covariance matrix
+    :type cov_matrix: pd.DataFrame
+    :return: correlation matrix
+    :rtype: pd.DataFrame
+    """
+    if not isinstance(cov_matrix, pd.DataFrame):
+        cov_matrix = pd.DataFrame(cov_matrix)
+
+    Dinv = np.diag(1 / np.sqrt(np.diag(cov_matrix)))
+    corr = np.dot(Dinv, np.dot(cov_matrix, Dinv))
+    return pd.DataFrame(corr, index=cov_matrix.index, columns=cov_matrix.index)
+
+# dataframe functions
 def typ_tech_analysis_df(stock_df, RS_n_days=14):
-    """TODO Add doc string
+    """Creates a full dataframe for specific stock statistics. Uses OHLC stock dataframe.
+
+    Args:
+        stock_df ([DataFrame]): Stock OHLC DataFrame
+        RS_n_days (int, optional): Defined period for RS index. Defaults to 14.
+
+    Returns:
+        DataFrame: DataFrame including adj close, volume, close delta, 
+        simple return %, total ROI%, log returns, RSI, bolinger bands, 
+        52 week high and low.
     """
     analysis_df = {}
     for t in stock_df.keys():
@@ -172,33 +238,3 @@ def typ_tech_analysis_df(stock_df, RS_n_days=14):
         analysis_df[t]['52 Wk High'] = analysis_df[t]['Adj Close'].rolling(min_periods=1, window=252, center=False).max()
         analysis_df[t]['52 Wk Low'] = analysis_df[t]['Adj Close'].rolling(min_periods=1, window=252, center=False).min()
     return analysis_df
-
-def scrape_sp500_tickers():
-    """TODO Add Doc Str"""
-    #set get file to look at wikipedia's list of sp500 companies
-    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
-    soup = bs.BeautifulSoup(resp.text, 'lxml')
-    table = soup.find('table', {'class': 'wikitable sortable'})
-    tickers = []
-    #cycle through wiki table to find get all of the stock tickers
-    for row in table.findAll('tr')[1:]:
-        ticker = row.findAll('td')[0].text
-        tickers.append(ticker)
-    #save to pickle to speed up process
-    with open("sp500tickers.pickle","wb") as f:
-        pickle.dump(tickers,f)
-    print ('Scraping Complete')
-    return tickers
-
-def iex_stock_fetch(tickers,start_date,end_date):
-    """All of this data can be taken from the etrade wrapper.Save in case it is useful later."""
-    tickers = tickers.split(',')
-
-    results = {}
-    for count,ticker in enumerate(tickers):
-        stats_url = base_url+f'stock/{ticker}/stats/stats?token={secret_key}'
-        stats_response = requests.get(stats_url)
-        results[ticker] = (stats_response.json())
-
-    df= pd.DataFrame(results)
-    return df
