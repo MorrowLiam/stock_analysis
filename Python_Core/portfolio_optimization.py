@@ -67,7 +67,7 @@ tickers = seperator.join(ticker_series)
 
 # %% fetch stock data
 # tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
-tickers="AFDIX,FXAIX,JLGRX,MEIKX"
+tickers="IAU,PRSCX"
 start_date = datetime(2010,1,1)
 end_date = datetime(2020,6,1)
 stock_df = sf.yahoo_stock_fetch(tickers, start_date, end_date)
@@ -427,7 +427,6 @@ plt.show()
 
 
 # %% scipy Plot
-
 fig, ax = plt.subplots(figsize=(12,6))
 ax.plot(sc_ef_plot_results_df.volatility, sc_ef_plot_results_df.returns, 'b--', linewidth=3)
 plt.scatter(sc_ef_plot_results_df.volatility,sc_ef_plot_results_df.returns,c=sc_ef_plot_results_df.sharpe,cmap='RdYlGn', alpha=1, s=.5)
@@ -460,5 +459,3 @@ plotting.plot_efficient_frontier(pypfopt.cla.CLA(pyfo_info[1],pyfo_info[2],weigh
 plt.tight_layout()
 plt.show()
 
-
-# %%

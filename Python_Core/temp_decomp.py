@@ -58,5 +58,6 @@ plt.tight_layout()
 plt.show()
 
 # %%
-model_prophet.plot_components(df_pred)
+model = model_prophet.plot_components(df_pred)
+
 

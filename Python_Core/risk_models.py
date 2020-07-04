@@ -21,16 +21,17 @@ from datetime import datetime
 from pandas import ExcelWriter
 from pandas import ExcelFile
 from scipy.optimize import minimize
-import stock_utilities as sf
+import stock_utilities as su
 import scipy.optimize as sco
 sns.set(style="darkgrid")
 
 # %% fetch stock data
-tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
+# tickers="AFDIX,FXAIX,JLGRX,MEIKX,PGOYX,HFMVX,FCVIX,FSSNX,WSCGX,CVMIX,DOMOX,FSPSX,ODVYX,MINJX,FGDIX,CMJIX,FFIVX,FCIFX,FFVIX,FDIFX,FIAFX,BPRIX,CBDIX,OIBYX,PDBZX"
 # tickers="AFDIX,FXAIX,JLGRX,MEIKX"
-start_date = pd.to_datetime('1/1/2015', utc=True)
+tickers = "PRHSX,IAU,VWIGX,GBF,TRBCF,PRSCX"
+start_date = pd.to_datetime('1/1/2016', utc=True)
 end_date = pd.to_datetime('1/6/2020', utc=True)
-stock_df = sf.yahoo_stock_fetch(tickers, start_date, end_date)
+stock_df = su.yahoo_stock_fetch(tickers, start_date, end_date)
 
 
 # %% make df
@@ -50,7 +51,7 @@ adj_close_df
 
 
 #%% covariance  matrix class
-# TODO add to a utilities file
+
 def cov_to_corr(cov_matrix):
     """
     Convert a covariance matrix to a correlation matrix.
@@ -60,7 +61,6 @@ def cov_to_corr(cov_matrix):
     :rtype: pd.DataFrame
     """
     if not isinstance(cov_matrix, pd.DataFrame):
-        warnings.warn("cov_matrix is not a dataframe", RuntimeWarning)
         cov_matrix = pd.DataFrame(cov_matrix)
 
     Dinv = np.diag(1 / np.sqrt(np.diag(cov_matrix)))
@@ -148,7 +148,6 @@ class covariance_models:
             raise ImportError("Please install scikit-learn via pip")
 
         if not isinstance(prices, pd.DataFrame):
-            warnings.warn("Data is not in a dataframe", RuntimeWarning)
             prices = pd.DataFrame(prices)
 
         self.frequency = frequency
@@ -410,7 +409,7 @@ class covariance_models:
 
 #%% plot covariance over time
 #select covariance matrix, and periods to show
-matrix = variation_over_time(prices = adj_close_df,frequency=252,periods=9,covariance='ledoit_wolf',correlation=True ,returns_data=False)
+matrix = variation_over_time(prices = adj_close_df,frequency=252,periods=2,covariance='ledoit_wolf',correlation=True ,returns_data=False)
 times = matrix[1]
 corr = pd.melt(matrix[0][1].reset_index(), id_vars='index') # Unpivot the dataframe, so we can get pair of arrays for x and y
 corr.columns = ['x', 'y', 'value']
@@ -425,3 +424,4 @@ for i in range(1, len(matrix[0])):
     ax = heatmap(x=corr['x'],y=corr['y'],size=normalized,scale = 400, times=times[i])
 plt.tight_layout()
 plt.show()
+
